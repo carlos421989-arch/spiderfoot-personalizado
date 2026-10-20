@@ -1,0 +1,36 @@
+{# Inputs (passed via {% include with context %}):
+     name        - the form/query parameter name (default 'model')
+     selected    - currently-selected model id
+     cached      - list of {model_requested, created_at} dicts (may be empty)
+     all_models  - list of {id, label}
+#}
+<select name="{{ name|default('model') }}"
+        x-model="model"
+        @change="switchModel()"
+        :disabled="streaming"
+        class="rounded border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900
+               text-sm py-1 px-2">
+  {% for m in all_models %}
+    <option value="{{ m.id }}" {% if m.id == selected %}selected{% endif %}>
+      {{ m.label }}{% for c in cached %}{% if c.model_requested == m.id %} (cached){% endif %}{% endfor %}
+    </option>
+  {% endfor %}
+
+  {# MODELOS_ADICIONAIS_COMPATIBILIDADE #}
+  {% set ids_disponiveis = all_models | map(attribute='id') | list %}
+
+  {% if 'moonshotai/kimi-k2.6' not in ids_disponiveis %}
+    <option value="moonshotai/kimi-k2.6">Kimi K2.6</option>
+  {% endif %}
+
+  {% if 'z-ai/glm-5.1' not in ids_disponiveis %}
+    <option value="z-ai/glm-5.1">GLM 5.1</option>
+  {% endif %}
+
+  {% if 'ollama/llama3.2:latest' not in
+        (all_models | map(attribute='id') | list) %}
+    <option value="ollama/llama3.2:latest">
+      Llama 3.2 (Ollama local)
+    </option>
+  {% endif %}
+</select>

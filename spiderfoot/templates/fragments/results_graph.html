@@ -1,0 +1,908 @@
+{# Graph tab — interactive Cytoscape rendering of scan results #}
+{# scan_id: current scan ID #}
+
+<div class="flex flex-col"
+     style="height: calc(100vh - 220px); min-height: 600px;"
+     x-data="scanGraph('{{ scan_id }}')"
+     x-init="init()">
+
+  {# Toolbar #}
+  <div class="flex flex-wrap items-center gap-2 px-4 py-2 border-b border-slate-200 dark:border-sf-border bg-white dark:bg-sf-surface">
+
+    <div class="flex items-center gap-2 min-w-0 flex-1">
+      <input type="text" x-model="search" @input.debounce.250ms="applySearch()"
+             placeholder="Search nodes..."
+             class="w-56 max-w-full text-sm rounded-md px-3 py-1.5
+                    border border-slate-300 dark:border-sf-border
+                    bg-white dark:bg-sf-elevated
+                    text-slate-800 dark:text-slate-100
+                    focus:outline-none focus:ring-2 focus:ring-sf-accent">
+
+      <select x-model="layoutName" @change="runLayout()"
+              class="text-sm rounded-md px-2 py-1.5
+                     border border-slate-300 dark:border-sf-border
+                     bg-white dark:bg-sf-elevated text-slate-800 dark:text-slate-100">
+        <option value="fcose">Organic (fcose)</option>
+        <option value="breadthfirst">Hierarchy</option>
+        <option value="concentric">Concentric</option>
+        <option value="circle">Circle</option>
+        <option value="grid">Grid</option>
+      </select>
+
+      <button @click="fit()" type="button"
+              class="text-xs px-2 py-1.5 rounded-md
+                     bg-slate-100 dark:bg-sf-elevated
+                     text-slate-700 dark:text-slate-200
+                     border border-slate-300 dark:border-sf-border
+                     hover:bg-slate-200 dark:hover:bg-sf-border">
+        Fit
+      </button>
+
+      <a :href="`/api/scanviz?id={{ scan_id }}&gexf=1`"
+         class="text-xs px-2 py-1.5 rounded-md
+                bg-slate-100 dark:bg-sf-elevated
+                text-slate-700 dark:text-slate-200
+                border border-slate-300 dark:border-sf-border
+                hover:bg-slate-200 dark:hover:bg-sf-border">
+        Export GEXF
+      </a>
+
+      {# Reset positions cached in sessionStorage and re-run layout. #}
+      <button @click="resetLayout()" type="button"
+              title="Discard saved positions and re-run the layout"
+              class="text-xs px-2 py-1.5 rounded-md
+                     bg-slate-100 dark:bg-sf-elevated
+                     text-slate-700 dark:text-slate-200
+                     border border-slate-300 dark:border-sf-border
+                     hover:bg-slate-200 dark:hover:bg-sf-border">
+        Re-layout
+      </button>
+
+      {# Only shown if user manually hid nodes via right-click. #}
+      <button x-show="hiddenNodeIds.size > 0" x-cloak
+              @click="unhideAll()" type="button"
+              class="text-xs px-2 py-1.5 rounded-md
+                     bg-amber-100 dark:bg-amber-900/40
+                     text-amber-800 dark:text-amber-200
+                     border border-amber-300 dark:border-amber-700
+                     hover:bg-amber-200 dark:hover:bg-amber-900/60">
+        Show <span x-text="hiddenNodeIds.size"></span> hidden
+      </button>
+
+      {# Collapse leaves of hubs with many degree-1 children. Reduces visible #}
+      {# nodes dramatically on scans dominated by subdomain enumeration.      #}
+      <button x-show="collapsibleHubCount > 0" x-cloak
+              @click="toggleCollapse()" type="button"
+              :title="collapseHubs
+                ? `Currently hiding ${collapsedLeafCount} leaf nodes under ${collapsibleHubCount} hubs. Click hubs (+N) to peek individually.`
+                : 'Re-collapse leaf children of high-degree hubs.'"
+              class="text-xs px-2 py-1.5 rounded-md border"
+              :class="collapseHubs
+                ? 'bg-sf-accent/10 dark:bg-sf-accent/20 text-sf-accent border-sf-accent/40 hover:bg-sf-accent/20'
+                : 'bg-slate-100 dark:bg-sf-elevated text-slate-700 dark:text-slate-200 border-slate-300 dark:border-sf-border hover:bg-slate-200 dark:hover:bg-sf-border'">
+        <span x-show="collapseHubs">Leaves: collapsed</span>
+        <span x-show="!collapseHubs" x-cloak>Leaves: expanded</span>
+      </button>
+
+      {# Min-degree slider — hide weakly-connected nodes. Root is never hidden. #}
+      <div x-show="maxDegree > 1" x-cloak
+           class="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300"
+           title="Hide nodes with fewer than N connections. Root is always shown.">
+        <span>Min deg</span>
+        <input type="range" min="0" :max="Math.min(maxDegree, 20)" step="1"
+               x-model.number="minDegree"
+               @input="applyVisibility()"
+               class="w-20 accent-sf-accent">
+        <span class="font-mono w-4 text-right" x-text="minDegree"></span>
+      </div>
+    </div>
+
+    <div class="text-xs text-slate-500 dark:text-slate-400 font-mono whitespace-nowrap">
+      <span x-text="visibleNodes"></span> / <span x-text="totalNodes"></span> nodes
+    </div>
+  </div>
+
+  {# Category filter chips #}
+  <div class="flex flex-wrap gap-1.5 px-4 py-2 border-b border-slate-200 dark:border-sf-border bg-slate-50 dark:bg-sf-elevated/50">
+    <template x-for="cat in categories" :key="cat.key">
+      <button type="button" @click="toggleCategory(cat.key)"
+              class="text-xs px-2 py-1 rounded-full border transition-colors"
+              :class="hiddenCats.has(cat.key)
+                ? 'bg-transparent border-slate-300 dark:border-sf-border text-slate-400 dark:text-slate-500 line-through opacity-60'
+                : 'border-transparent text-white'"
+              :style="!hiddenCats.has(cat.key) ? `background-color: ${cat.color}` : ''">
+        <span x-text="cat.label"></span>
+        <span class="ml-1 opacity-75 font-mono" x-text="`(${cat.count})`"></span>
+      </button>
+    </template>
+  </div>
+
+  {# Main: graph + side panel #}
+  <div class="flex flex-1" style="min-height: 0;">
+    {# Graph canvas #}
+    <div class="relative bg-slate-50 dark:bg-sf-bg" style="flex: 1 1 0%; min-width: 0;">
+      <div id="graph-canvas" style="position: absolute; inset: 0;"
+           @contextmenu.prevent></div>
+
+      {# Loading overlay #}
+      <div x-show="loading" x-cloak
+           class="absolute inset-0 flex items-center justify-center bg-slate-50/80 dark:bg-sf-bg/80 backdrop-blur-sm">
+        <div class="text-center">
+          <svg class="animate-spin h-8 w-8 text-sf-accent mx-auto mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <p class="text-sm text-slate-500 dark:text-slate-400" x-text="loadingMessage">Loading graph data...</p>
+        </div>
+      </div>
+
+      {# Empty state #}
+      <div x-show="!loading && totalNodes === 0" x-cloak
+           class="absolute inset-0 flex items-center justify-center">
+        <div class="text-center">
+          <p class="text-sm text-slate-500 dark:text-slate-400">No graph data yet.</p>
+          <p class="text-xs text-slate-400 dark:text-slate-500 mt-1">Relationships appear as the scan discovers entities.</p>
+        </div>
+      </div>
+    </div>
+
+    {# Side panel #}
+    <aside class="w-80 shrink-0 border-l border-slate-200 dark:border-sf-border bg-white dark:bg-sf-surface overflow-y-auto">
+      <template x-if="selected">
+        <div class="p-4">
+          <div class="flex items-start justify-between mb-3">
+            <p class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Selected node</p>
+            <button @click="clearSelection()" type="button"
+                    class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+
+          <p class="text-xs text-slate-500 dark:text-slate-400">Type</p>
+          <p class="text-sm font-mono text-slate-800 dark:text-slate-100 mb-3 break-all" x-text="selected.type"></p>
+
+          <p class="text-xs text-slate-500 dark:text-slate-400">Value</p>
+          <p class="text-sm font-mono text-slate-800 dark:text-slate-100 mb-3 break-all" x-text="selected.label"></p>
+
+          <p class="text-xs text-slate-500 dark:text-slate-400">Connections</p>
+          <p class="text-sm font-mono text-slate-800 dark:text-slate-100 mb-3" x-text="selected.degree"></p>
+
+          <p class="text-xs text-slate-500 dark:text-slate-400 mb-1">Neighbors</p>
+          <ul class="text-xs space-y-1 max-h-64 overflow-y-auto">
+            <template x-for="n in selected.neighbors" :key="n.id">
+              <li>
+                <button @click="focusNode(n.id)" type="button"
+                        class="text-left hover:text-sf-accent w-full truncate"
+                        :title="n.label + ' (' + n.type + ')'">
+                  <span class="inline-block w-2 h-2 rounded-full mr-1.5 align-middle"
+                        :style="`background-color: ${categoryColor(n.type)}`"></span>
+                  <span class="font-mono" x-text="n.label"></span>
+                </button>
+              </li>
+            </template>
+          </ul>
+        </div>
+      </template>
+
+      <template x-if="!selected">
+        <div class="p-4">
+          <p class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-2">Graph</p>
+          <p class="text-sm text-slate-600 dark:text-slate-300">
+            Click a node to inspect it. Drag to pan, scroll to zoom.
+          </p>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-3">
+            Categories with no nodes are hidden. Toggle the chips above to filter.
+          </p>
+        </div>
+      </template>
+    </aside>
+  </div>
+
+  {# Right-click context menu — positioned at viewport coords from cxttap. #}
+  <div x-show="ctx.open" x-cloak
+       @click.outside="ctx.open = false"
+       @keydown.escape.window="ctx.open = false"
+       :style="`position: fixed; left: ${ctx.x}px; top: ${ctx.y}px; z-index: 50;`"
+       class="bg-white dark:bg-sf-surface border border-slate-300 dark:border-sf-border rounded-md shadow-lg py-1 min-w-[180px] text-slate-800 dark:text-slate-100">
+    <div class="px-3 py-1 text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-400 truncate" x-text="ctx.label"></div>
+    <div class="border-t border-slate-200 dark:border-sf-border my-1"></div>
+    <button @click="ctxFocusNeighborhood()" type="button"
+            class="block w-full text-left px-3 py-1.5 text-xs hover:bg-slate-100 dark:hover:bg-sf-elevated">
+      Focus neighborhood
+    </button>
+    <button @click="ctxHideNode()" type="button"
+            class="block w-full text-left px-3 py-1.5 text-xs hover:bg-slate-100 dark:hover:bg-sf-elevated">
+      Hide this node
+    </button>
+    <button @click="ctxHideNeighborhood()" type="button"
+            class="block w-full text-left px-3 py-1.5 text-xs hover:bg-slate-100 dark:hover:bg-sf-elevated">
+      Hide non-neighbors
+    </button>
+    <button @click="ctxCopyValue()" type="button"
+            class="block w-full text-left px-3 py-1.5 text-xs hover:bg-slate-100 dark:hover:bg-sf-elevated">
+      Copy value
+    </button>
+  </div>
+</div>
+
+{# Lazily load Cytoscape + fcose extension. Idempotent: subsequent tab visits #}
+{# don't re-fetch (browser cache + window.cytoscape guard).                    #}
+<script>
+(function() {
+  if (window.__cytoscapeLoading || window.cytoscape) return;
+  window.__cytoscapeLoading = true;
+  function load(src) {
+    return new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = src; s.async = false;
+      s.onload = resolve; s.onerror = reject;
+      document.head.appendChild(s);
+    });
+  }
+  (async () => {
+    await load('/static/vendor/cytoscape.umd.js');
+    await load('/static/vendor/layout-base.js');
+    await load('/static/vendor/cose-base.js');
+    await load('/static/vendor/cytoscape-fcose.js');
+    if (window.cytoscape && window.cytoscapeFcose && !window.__fcoseRegistered) {
+      window.cytoscape.use(window.cytoscapeFcose);
+      window.__fcoseRegistered = true;
+    }
+    window.dispatchEvent(new CustomEvent('cytoscape-ready'));
+  })();
+})();
+</script>
+
+<script>
+function scanGraph(scanId) {
+  // Cytoscape instance lives in a closure variable so Alpine's reactive
+  // Proxy never wraps it — wrapping breaks the renderer (canvas stays blank
+  // even though cy.nodes() returns the right count).
+  let cy = null;
+  return {
+    loading: true,
+    loadingMessage: 'Loading graph data...',
+    totalNodes: 0,
+    visibleNodes: 0,
+    layoutName: 'fcose',
+    search: '',
+    selected: null,
+    hiddenCats: new Set(),
+    hiddenNodeIds: new Set(),         // manually hidden via right-click menu
+    categories: [],
+    // Hub-leaf collapse state. A "leaf" here is a degree-1 node whose sole
+    // neighbor is a hub with >= LEAF_THRESHOLD such leaves. Collapsing them
+    // turns blob-clusters of *.example.com subdomains into a "(+247)" badge
+    // on the parent hub.
+    LEAF_THRESHOLD: 8,
+    collapseHubs: true,
+    expandedHubs: new Set(),          // hubs the user clicked to peek inside
+    collapsibleHubCount: 0,
+    collapsedLeafCount: 0,
+    // Min-degree filter slider.
+    minDegree: 0,
+    maxDegree: 1,
+    ctx: { open: false, x: 0, y: 0, nodeId: null, label: '' },
+    POS_KEY: `sf_graph_pos_${scanId}`,
+
+    // Mirrors EVENT_CATEGORIES from event_service.py — keep in sync.
+    CATEGORY_MAP: {
+      'attack_surface': {
+        label: 'Attack Surface',
+        color: '#3b82f6',  // blue-500
+        types: ['INTERNET_NAME','INTERNET_NAME_UNRESOLVED','IP_ADDRESS','TCP_PORT_OPEN',
+                'TCP_PORT_OPEN_BANNER','UDP_PORT_OPEN','DOMAIN_NAME'],
+      },
+      'identities': {
+        label: 'Identities',
+        color: '#a855f7',  // purple-500
+        types: ['EMAILADDR','EMAILADDR_GENERIC','EMAILADDR_COMPROMISED','USERNAME',
+                'PHONE_NUMBER','HUMAN_NAME','ACCOUNT_EXTERNAL_OWNED','SOCIAL_MEDIA',
+                'LEAKSITE_CONTENT','LEAKSITE_URL','DARKNET_MENTION_CONTENT','PHONE_NUMBER_COMPROMISED'],
+      },
+      'infrastructure': {
+        label: 'Infrastructure',
+        color: '#14b8a6',  // teal-500
+        types: ['WEBSERVER_TECHNOLOGY','WEBSERVER_BANNER','WEBSERVER_HTTPHEADERS','OPERATING_SYSTEM',
+                'DEVICE_TYPE','SOFTWARE_USED','RAW_RIR_DATA','SSL_CERTIFICATE_ISSUED','SSL_CERTIFICATE_ISSUER',
+                'BGP_AS_MEMBER','COMPANY_NAME','PROVIDER_HOSTING','GEOINFO','DOMAIN_WHOIS','DOMAIN_REGISTRAR',
+                'CO_HOSTED_SITE','CO_HOSTED_SITE_DOMAIN','AFFILIATE_INTERNET_NAME','AFFILIATE_DOMAIN_NAME',
+                'NETBLOCK_OWNER','NETBLOCK_MEMBER','PROVIDER_DNS','PROVIDER_MAIL'],
+      },
+      'reputation': {
+        label: 'Reputation',
+        color: '#f59e0b',  // amber-500
+        types: ['MALICIOUS_IPADDR','MALICIOUS_INTERNET_NAME','MALICIOUS_AFFILIATE_IPADDR',
+                'MALICIOUS_NETBLOCK','MALICIOUS_SUBNET','BLACKLISTED_IPADDR','BLACKLISTED_INTERNET_NAME',
+                'BLACKLISTED_AFFILIATE_IPADDR','RANSOMWARE_VICTIM'],
+      },
+      'vulnerabilities': {
+        label: 'Vulnerabilities',
+        color: '#ef4444',  // red-500
+        types: ['VULNERABILITY_CVE_CRITICAL','VULNERABILITY_CVE_HIGH','VULNERABILITY_CVE_MEDIUM',
+                'VULNERABILITY_CVE_LOW','VULNERABILITY_GENERAL'],
+      },
+      'other': {
+        label: 'Other',
+        color: '#94a3b8',  // slate-400
+        types: [],
+      },
+      'root': {
+        label: 'Target',
+        color: '#fbbf24',  // amber-400 — distinct golden for the seed
+        types: ['ROOT'],
+      },
+    },
+
+    typeToCategory(type) {
+      for (const [key, info] of Object.entries(this.CATEGORY_MAP)) {
+        if (info.types.includes(type)) return key;
+      }
+      return 'other';
+    },
+
+    categoryColor(type) {
+      return this.CATEGORY_MAP[this.typeToCategory(type)].color;
+    },
+
+    init() {
+      const start = () => {
+        // Defer until the canvas has real dimensions. Cytoscape captures the
+        // container size at construction time and won't redraw at zero size.
+        const tryStart = () => {
+          const el = document.getElementById('graph-canvas');
+          if (el && el.clientWidth > 0 && el.clientHeight > 0) {
+            this.fetchAndRender();
+          } else {
+            requestAnimationFrame(tryStart);
+          }
+        };
+        requestAnimationFrame(tryStart);
+      };
+      if (window.cytoscape) start();
+      else window.addEventListener('cytoscape-ready', start, { once: true });
+    },
+
+    async fetchAndRender() {
+      try {
+        const resp = await fetch(`/api/scanviz?id=${encodeURIComponent(scanId)}&gexf=0`);
+        if (!resp.ok || resp.status === 204) {
+          this.loading = false;
+          this.totalNodes = 0;
+          return;
+        }
+        const data = await resp.json();
+        const nodes = data.nodes || [];
+        const edges = data.edges || [];
+        this.totalNodes = nodes.length;
+        this.visibleNodes = nodes.length;
+
+        if (nodes.length === 0) {
+          this.loading = false;
+          return;
+        }
+
+        this.loadingMessage = `Laying out ${nodes.length} nodes...`;
+
+        // Pre-compute degree from the edges so we can size hubs larger than
+        // leaves. Done client-side because the API doesn't include degree.
+        const degree = {};
+        for (const n of nodes) degree[n.id] = 0;
+        for (const e of edges) {
+          degree[e.source] = (degree[e.source] || 0) + 1;
+          degree[e.target] = (degree[e.target] || 0) + 1;
+        }
+        const nodeSize = (n) => {
+          if (n.is_root) return 32;
+          // sqrt scaling so a node with degree 16 is ~2x a degree-1 leaf,
+          // not 16x. Capped at 36 so monster hubs stay on screen.
+          return Math.min(36, 12 + Math.sqrt(degree[n.id] || 0) * 4);
+        };
+
+        // Detect "collapsible leaves" — degree-1 nodes whose sole neighbor is
+        // a hub with many such leaves. Build adjacency once.
+        const adj = {};
+        for (const n of nodes) adj[n.id] = [];
+        for (const e of edges) {
+          adj[e.source].push(e.target);
+          adj[e.target].push(e.source);
+        }
+        const leafParent = {};      // leafId -> hubId
+        const hubLeafCount = {};    // hubId  -> count of degree-1 leaf children
+        for (const n of nodes) {
+          if (n.is_root) continue;
+          if ((degree[n.id] || 0) !== 1) continue;
+          const parent = adj[n.id][0];
+          if (parent === undefined) continue;
+          leafParent[n.id] = parent;
+          hubLeafCount[parent] = (hubLeafCount[parent] || 0) + 1;
+        }
+        // Only hubs that exceed the threshold get the (+N) treatment.
+        const collapsibleHubs = new Set();
+        for (const [hubId, count] of Object.entries(hubLeafCount)) {
+          if (count >= this.LEAF_THRESHOLD) collapsibleHubs.add(hubId);
+        }
+        let collapsedLeaves = 0;
+        const isCollapsibleLeaf = {};
+        for (const [leafId, hubId] of Object.entries(leafParent)) {
+          if (collapsibleHubs.has(hubId)) {
+            isCollapsibleLeaf[leafId] = true;
+            collapsedLeaves++;
+          }
+        }
+        this.collapsibleHubCount = collapsibleHubs.size;
+        this.collapsedLeafCount = collapsedLeaves;
+        this.maxDegree = Object.values(degree).reduce((a, b) => Math.max(a, b), 1);
+
+        const elements = [];
+        for (const n of nodes) {
+          const cat = n.is_root ? 'root' : this.typeToCategory(n.type);
+          const hubCount = collapsibleHubs.has(n.id) ? hubLeafCount[n.id] : 0;
+          const baseLabel = n.label;
+          elements.push({
+            data: {
+              id: n.id,
+              label: hubCount ? `${baseLabel}  (+${hubCount})` : baseLabel,
+              baseLabel,
+              fullLabel: n.label,
+              type: n.type,
+              category: cat,
+              color: this.CATEGORY_MAP[cat].color,
+              isRoot: !!n.is_root,
+              size: nodeSize(n),
+              degree: degree[n.id] || 0,
+              hubLeafCount: hubCount,                          // 0 if not a collapsible hub
+              collapsedBy: isCollapsibleLeaf[n.id] ? leafParent[n.id] : null,
+            }
+          });
+        }
+        for (const e of edges) {
+          elements.push({
+            data: { id: 'e' + e.id, source: e.source, target: e.target }
+          });
+        }
+
+        cy = window.cytoscape({
+          container: document.getElementById('graph-canvas'),
+          elements,
+          minZoom: 0.05,
+          maxZoom: 4,
+          wheelSensitivity: 0.2,
+          style: [
+            {
+              selector: 'node',
+              style: {
+                'background-color': 'data(color)',
+                'width': 'data(size)',
+                'height': 'data(size)',
+                'label': 'data(label)',
+                'color': '#1e293b',
+                'font-size': 10,
+                'font-family': 'ui-monospace, monospace',
+                'text-wrap': 'ellipsis',
+                'text-max-width': 120,
+                'text-margin-y': -4,
+                'text-valign': 'bottom',
+                'text-halign': 'center',
+                'text-outline-color': '#fff',
+                'text-outline-width': 2,
+                'border-width': 1,
+                'border-color': '#fff',
+                // Hide labels when zoomed out — labels are unreadable below
+                // ~6px effective size and just create overlap mush. They snap
+                // back as the user zooms in.
+                'min-zoomed-font-size': 6,
+              },
+            },
+            {
+              selector: 'node[?isRoot]',
+              style: {
+                'border-width': 3,
+                'border-color': '#f59e0b',
+                'font-size': 12,
+                'font-weight': 'bold',
+                'z-index': 10,
+                // Root label should remain visible at deeper zoom-out.
+                'min-zoomed-font-size': 4,
+              },
+            },
+            {
+              selector: 'node.dimmed',
+              style: { 'opacity': 0.15 },
+            },
+            {
+              selector: 'node.highlight',
+              style: {
+                'border-width': 3,
+                'border-color': '#0ea5e9',
+                'z-index': 99,
+              },
+            },
+            {
+              selector: 'node.hidden',
+              style: { 'display': 'none' },
+            },
+            {
+              selector: 'edge',
+              style: {
+                'width': 1,
+                'line-color': '#cbd5e1',
+                'target-arrow-color': '#cbd5e1',
+                'target-arrow-shape': 'triangle',
+                'arrow-scale': 0.8,
+                'curve-style': 'bezier',
+                'opacity': 0.55,
+              },
+            },
+            {
+              selector: 'edge.dimmed',
+              style: { 'opacity': 0.05 },
+            },
+            {
+              selector: 'edge.highlight',
+              style: {
+                'line-color': '#0ea5e9',
+                'target-arrow-color': '#0ea5e9',
+                'opacity': 1,
+                'width': 2,
+              },
+            },
+          ],
+        });
+
+        // Style overrides for dark mode (text outline + label color).
+        if (document.documentElement.classList.contains('dark')) {
+          cy.style()
+            .selector('node').style({ 'color': '#e2e8f0', 'text-outline-color': '#0f172a' })
+            .selector('edge').style({ 'line-color': '#475569', 'target-arrow-color': '#475569' })
+            .selector('edge.dimmed').style({ 'opacity': 0.08 })
+            .update();
+        }
+
+        cy.on('tap', 'node', (evt) => {
+          const node = evt.target;
+          // Clicking a hub with collapsed leaves toggles them open/closed
+          // before the usual selection — gives a one-click "peek" UX.
+          if (this.collapseHubs && node.data('hubLeafCount') > 0) {
+            this.toggleHubExpansion(node.id());
+          }
+          this.selectNode(node);
+        });
+        cy.on('tap', (evt) => {
+          if (evt.target === cy) this.clearSelection();
+          this.ctx.open = false;
+        });
+
+        // Right-click on a node: open the context menu near the cursor.
+        cy.on('cxttap', 'node', (evt) => {
+          const oe = evt.originalEvent;
+          this.ctx = {
+            open: true,
+            x: oe.clientX,
+            y: oe.clientY,
+            nodeId: evt.target.id(),
+            label: evt.target.data('fullLabel') || evt.target.id(),
+          };
+        });
+        cy.on('cxttap', (evt) => {
+          if (evt.target === cy) this.ctx.open = false;
+        });
+
+        // Expose for ad-hoc console debugging (window._sf_cy.fit(), etc.).
+        window._sf_cy = cy;
+
+        // Diagnostics — visible in browser console.
+        console.log('[graph] cy created:', {
+          nodes: cy.nodes().length,
+          edges: cy.edges().length,
+          containerSize: cy.container() ? `${cy.container().clientWidth}x${cy.container().clientHeight}` : 'no container',
+          fcoseRegistered: !!window.cytoscapeFcose,
+        });
+
+        // Keep the canvas in sync if the window or its container resizes
+        // (side panel collapse, devtools open, browser resize, etc.).
+        const onResize = () => { if (cy) cy.resize(); };
+        window.addEventListener('resize', onResize);
+        if (window.ResizeObserver) {
+          const ro = new ResizeObserver(onResize);
+          ro.observe(document.getElementById('graph-canvas'));
+        }
+
+        this.computeCategories();
+        this.applyVisibility();
+        this.runLayout();
+      } catch (err) {
+        console.error('Graph load failed:', err);
+        this.loading = false;
+        this.loadingMessage = 'Failed to load graph data.';
+      }
+    },
+
+    // Build a stable signature so we can invalidate cached positions when
+    // the underlying graph changes (new scan results, nodes added/removed).
+    graphSignature() {
+      if (!cy) return '';
+      return cy.nodes().map((n) => n.id()).sort().join(',');
+    },
+
+    saveLayout() {
+      if (!cy) return;
+      try {
+        const positions = {};
+        cy.nodes().forEach((n) => { positions[n.id()] = n.position(); });
+        sessionStorage.setItem(this.POS_KEY, JSON.stringify({
+          sig: this.graphSignature(),
+          layout: this.layoutName,
+          positions,
+        }));
+      } catch (e) { /* sessionStorage may be unavailable; ignore */ }
+    },
+
+    restoreLayout() {
+      if (!cy) return false;
+      try {
+        const raw = sessionStorage.getItem(this.POS_KEY);
+        if (!raw) return false;
+        const obj = JSON.parse(raw);
+        if (obj.sig !== this.graphSignature()) return false;
+        cy.batch(() => {
+          cy.nodes().forEach((n) => {
+            const p = obj.positions[n.id()];
+            if (p) n.position(p);
+          });
+        });
+        return true;
+      } catch (e) { return false; }
+    },
+
+    resetLayout() {
+      try { sessionStorage.removeItem(this.POS_KEY); } catch (e) {}
+      this.runLayout({ force: true });
+    },
+
+    runLayout(opts = {}) {
+      if (!cy) return;
+
+      // Try to restore cached positions first — avoids re-randomizing on
+      // every tab switch.
+      if (!opts.force && this.restoreLayout()) {
+        this.loading = false;
+        cy.resize();
+        cy.fit(cy.nodes().not('.hidden'), 60);
+        return;
+      }
+
+      this.loading = true;
+      this.loadingMessage = `Running ${this.layoutName} layout...`;
+
+      const visible = cy.nodes().not('.hidden');
+      const nodeCount = visible.length;
+
+      const layoutOpts = (() => {
+        if (this.layoutName === 'fcose') {
+          // Keep options minimal — extra knobs (nodeSeparation, packComponents,
+          // gravityRange) silently break fcose on small graphs and produce
+          // stratified rows instead of an organic web. Defaults look great.
+          return {
+            name: 'fcose',
+            quality: nodeCount > 600 ? 'draft' : 'default',
+            randomize: true,
+            animate: false,
+            nodeRepulsion: nodeCount < 80 ? 8000 : 4500,
+            idealEdgeLength: nodeCount < 80 ? 120 : 80,
+          };
+        }
+        if (this.layoutName === 'breadthfirst') {
+          const roots = visible.filter('[?isRoot]');
+          return {
+            name: 'breadthfirst',
+            roots: roots.length ? roots : visible.first(),
+            directed: true,
+            spacingFactor: 1.3,
+            animate: false,
+          };
+        }
+        if (this.layoutName === 'concentric') {
+          return {
+            name: 'concentric',
+            concentric: (n) => (n.data('isRoot') ? 999 : n.degree(false)),
+            levelWidth: () => 1,
+            minNodeSpacing: 30,
+            animate: false,
+          };
+        }
+        return { name: this.layoutName, animate: false };
+      })();
+
+      // fcose has TWO traps:
+      //   1. visible.layout(...) silently falls back to a grid (calling on a
+      //      sub-collection doesn't run fcose properly).
+      //   2. cy.layout({...opts, eles: ...}) ALSO silently breaks — passing
+      //      `eles` (even cy.nodes()) leaves nodes unplaced.
+      // The only reliable form is plain cy.layout(opts). Hidden nodes are
+      // already excluded from rendering via the `node.hidden` display:none
+      // style, so laying out all nodes is fine.
+      const layout = (this.layoutName === 'fcose')
+        ? cy.layout(layoutOpts)
+        : visible.layout(layoutOpts);
+      layout.one('layoutstop', () => {
+        this.loading = false;
+        // Force the canvas backing store to match container size before fit,
+        // otherwise nodes can land outside the viewport.
+        cy.resize();
+        cy.fit(visible, 60);
+        this.saveLayout();
+      });
+      // Some layouts complete synchronously — fall back to a tick.
+      setTimeout(() => {
+        if (this.loading) {
+          this.loading = false;
+          cy.resize();
+          cy.fit(visible, 60);
+          this.saveLayout();
+        }
+      }, 300);
+      layout.run();
+    },
+
+    computeCategories() {
+      const counts = {};
+      cy.nodes().forEach((n) => {
+        const c = n.data('category');
+        counts[c] = (counts[c] || 0) + 1;
+      });
+      const order = ['root','attack_surface','identities','infrastructure','reputation','vulnerabilities','other'];
+      this.categories = order
+        .filter((k) => counts[k])
+        .map((k) => ({ key: k, label: this.CATEGORY_MAP[k].label, color: this.CATEGORY_MAP[k].color, count: counts[k] }));
+    },
+
+    toggleCategory(key) {
+      if (this.hiddenCats.has(key)) this.hiddenCats.delete(key);
+      else this.hiddenCats.add(key);
+      this.hiddenCats = new Set(this.hiddenCats);  // trigger reactivity
+      this.applyVisibility();
+    },
+
+    applyVisibility() {
+      if (!cy) return;
+      const search = this.search ? this.search.toLowerCase() : '';
+      const minDeg = this.minDegree | 0;
+      cy.batch(() => {
+        cy.nodes().forEach((n) => {
+          const isRoot = n.data('isRoot');
+          const collapsedBy = n.data('collapsedBy');
+          // A leaf is hidden if its parent hub is in collapse mode AND the
+          // user hasn't clicked that hub to peek inside.
+          const hiddenByCollapse = !!collapsedBy
+            && this.collapseHubs
+            && !this.expandedHubs.has(collapsedBy);
+          const hiddenByDegree = !isRoot && (n.data('degree') || 0) < minDeg;
+          const hide = this.hiddenCats.has(n.data('category')) ||
+                       this.hiddenNodeIds.has(n.id()) ||
+                       hiddenByCollapse ||
+                       hiddenByDegree ||
+                       (search && !n.data('baseLabel').toLowerCase().includes(search));
+          n.toggleClass('hidden', hide);
+          // Toggle the (+N) suffix on the parent hub as the user expands it.
+          const hubCount = n.data('hubLeafCount') || 0;
+          if (hubCount > 0) {
+            const showBadge = this.collapseHubs && !this.expandedHubs.has(n.id());
+            const desired = showBadge
+              ? `${n.data('baseLabel')}  (+${hubCount})`
+              : n.data('baseLabel');
+            if (n.data('label') !== desired) n.data('label', desired);
+          }
+        });
+      });
+      this.visibleNodes = cy.nodes().not('.hidden').length;
+    },
+
+    toggleCollapse() {
+      this.collapseHubs = !this.collapseHubs;
+      // Switching modes resets per-hub peek state to avoid confusing UI.
+      this.expandedHubs = new Set();
+      this.applyVisibility();
+    },
+
+    toggleHubExpansion(hubId) {
+      if (this.expandedHubs.has(hubId)) this.expandedHubs.delete(hubId);
+      else this.expandedHubs.add(hubId);
+      this.expandedHubs = new Set(this.expandedHubs);  // reactivity
+      this.applyVisibility();
+    },
+
+    applySearch() {
+      this.applyVisibility();
+    },
+
+    unhideAll() {
+      this.hiddenNodeIds = new Set();
+      this.applyVisibility();
+    },
+
+    // ---- Right-click context menu actions ----
+    ctxFocusNeighborhood() {
+      const n = cy.getElementById(this.ctx.nodeId);
+      this.ctx.open = false;
+      if (!n.length) return;
+      this.selectNode(n);
+      cy.animate({ center: { eles: n.closedNeighborhood() }, zoom: Math.max(cy.zoom(), 1.0) },
+                 { duration: 250 });
+    },
+
+    ctxHideNode() {
+      const id = this.ctx.nodeId;
+      this.ctx.open = false;
+      if (!id) return;
+      this.hiddenNodeIds.add(id);
+      this.hiddenNodeIds = new Set(this.hiddenNodeIds);  // reactivity
+      this.applyVisibility();
+    },
+
+    ctxHideNeighborhood() {
+      const n = cy.getElementById(this.ctx.nodeId);
+      this.ctx.open = false;
+      if (!n.length) return;
+      const keep = new Set();
+      n.closedNeighborhood().nodes().forEach((x) => keep.add(x.id()));
+      cy.nodes().forEach((x) => { if (!keep.has(x.id())) this.hiddenNodeIds.add(x.id()); });
+      this.hiddenNodeIds = new Set(this.hiddenNodeIds);
+      this.applyVisibility();
+    },
+
+    ctxCopyValue() {
+      const n = cy.getElementById(this.ctx.nodeId);
+      this.ctx.open = false;
+      if (!n.length) return;
+      const text = n.data('fullLabel') || n.id();
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).catch(() => {});
+      }
+    },
+
+    selectNode(node) {
+      const id = node.id();
+      const neighborhood = node.closedNeighborhood();
+      cy.batch(() => {
+        cy.elements().addClass('dimmed').removeClass('highlight');
+        neighborhood.removeClass('dimmed').addClass('highlight');
+      });
+
+      const neighbors = node.neighborhood('node').map((n) => ({
+        id: n.id(),
+        label: n.data('label'),
+        type: n.data('type'),
+      }));
+
+      this.selected = {
+        id,
+        label: node.data('fullLabel'),
+        type: node.data('type'),
+        degree: node.degree(false),
+        neighbors,
+      };
+    },
+
+    focusNode(id) {
+      const n = cy.getElementById(id);
+      if (!n || !n.length) return;
+      this.selectNode(n);
+      cy.animate({ center: { eles: n }, zoom: Math.max(cy.zoom(), 1.2) }, { duration: 250 });
+    },
+
+    clearSelection() {
+      if (!cy) return;
+      cy.elements().removeClass('dimmed').removeClass('highlight');
+      this.selected = null;
+    },
+
+    fit() {
+      if (!cy) return;
+      cy.fit(cy.nodes().not('.hidden'), 60);
+    },
+  };
+}
+</script>

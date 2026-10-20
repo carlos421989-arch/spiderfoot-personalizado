@@ -1,0 +1,54 @@
+name: Tests
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8 pytest
+          pip install -r requirements.txt
+      - name: Lint with flake8
+        run: |
+          flake8 . --count --show-source --statistics --max-line-length=150
+      - name: Test with pytest
+        run: |
+          python -m pytest --ignore=test/integration/modules/ --durations=5 .
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Docker image
+        run: docker build -t spiderfoot-revival .
+      - name: Start container
+        run: |
+          docker run -d --name sf-test -p 5001:5001 spiderfoot-revival
+          sleep 10
+      - name: Smoke test
+        run: |
+          curl -sf -o /dev/null http://localhost:5001/ || (docker logs sf-test && exit 1)
+          curl -sf -o /dev/null http://localhost:5001/newscan || (docker logs sf-test && exit 1)
+          echo "Smoke tests passed"
+      - name: Check for errors
+        run: |
+          docker logs sf-test 2>&1 | grep -i "error\|traceback" && exit 1 || echo "No errors found"
+      - name: Cleanup
+        if: always()
+        run: docker rm -f sf-test || true

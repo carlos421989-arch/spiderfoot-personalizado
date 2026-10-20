@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="csrf-token" content="{{ csrf_token }}">
+  <title>{% block title %}SpiderFoot{% endblock %}</title>
+
+  <!-- Google Fonts (link tags load more reliably cross-browser than CSS @import) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <!-- Prevent flash of wrong theme -->
+  <script>
+    (function() {
+      var t = localStorage.getItem('sf-theme');
+      if (t === 'light') {
+        document.documentElement.classList.remove('dark');
+      } else if (t === 'auto') {
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+          document.documentElement.classList.remove('dark');
+        } else {
+          document.documentElement.classList.add('dark');
+        }
+      } else {
+        document.documentElement.classList.add('dark');
+      }
+    })();
+  </script>
+
+  <!-- Tailwind CSS (pre-built, no CDN JIT — consistent across all browsers) -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind.css') }}">
+
+  <!-- Custom styles -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/custom.css') }}">
+
+  <!-- HTMX -->
+  <script defer src="{{ url_for('static', filename='vendor/htmx.min.js') }}"></script>
+  <script>
+  document.addEventListener('htmx:configRequest', function(e) {
+      var token = document.querySelector('meta[name="csrf-token"]');
+      if (token) { e.detail.headers['X-CSRF-Token'] = token.content; }
+  });
+  </script>
+  <!-- Theme manager -->
+  <script defer src="{{ url_for('static', filename='js/theme.js') }}"></script>
+
+  <!-- Page-specific scripts (must load BEFORE Alpine so components are registered) -->
+  {% block head %}{% endblock %}
+
+  <!-- Alpine.js (must be LAST defer script so Alpine.data() registrations happen first) -->
+  <script defer src="{{ url_for('static', filename='vendor/alpine.min.js') }}"></script>
+</head>
+<body class="bg-white dark:bg-sf-base text-slate-800 dark:text-slate-200 font-sans min-h-screen">
+
+  {% include 'components/sidebar.html' %}
+
+  <main class="ml-14 p-6 transition-[margin] duration-200">
+    {% block content %}{% endblock %}
+  </main>
+
+</body>
+</html>

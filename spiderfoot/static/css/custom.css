@@ -1,0 +1,94 @@
+/* SpiderFoot Custom Styles
+ * Styles that go beyond Tailwind utilities.
+ */
+
+/* Fonts loaded via <link> in base.html for cross-browser reliability */
+
+/* ---- Normalize cross-browser sizing ---- */
+html {
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+  -moz-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Alpine.js cloak — hide elements until Alpine initializes */
+[x-cloak] { display: none !important; }
+
+/* ---- Sidebar ---- */
+.sidebar {
+  width: 56px;
+  transition: width 200ms ease-in-out;
+}
+
+.sidebar:hover,
+.sidebar.expanded {
+  width: 200px;
+}
+
+.sidebar .nav-label {
+  opacity: 0;
+  white-space: nowrap;
+  transition: opacity 150ms ease-in-out;
+}
+
+.sidebar:hover .nav-label,
+.sidebar.expanded .nav-label {
+  opacity: 1;
+}
+
+/* Hide expand hint when sidebar is expanded */
+.sidebar:hover .sidebar-expand-hint,
+.sidebar.expanded .sidebar-expand-hint {
+  opacity: 0;
+}
+
+/* ---- Scrollbar (dark theme) ---- */
+.dark ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: #0a0e17;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 3px;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
+/* ---- Status dot pulse ---- */
+@keyframes sf-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* ---- Smooth tab transitions ---- */
+[hx-swap] {
+  transition: opacity 0.15s ease;
+}
+
+/* ---- Graph container ---- */
+#graph-container canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* ---- Focus ring for inputs ---- */
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  box-shadow: 0 0 0 1px rgba(6, 182, 212, 0.3);
+  border-color: rgba(6, 182, 212, 0.5);
+}

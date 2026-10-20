@@ -1,0 +1,42 @@
+{# Event rows — flat view, paginated #}
+{# Returned by /frag/events for HTMX search/filter/pagination #}
+
+{% for event in events %}
+  {% include 'components/event_row.html' %}
+{% else %}
+<div class="px-3 py-8 text-center text-slate-400 dark:text-slate-500 text-sm">No matching events found.</div>
+{% endfor %}
+
+{# Pagination #}
+{% if total_pages is defined and total_pages > 1 %}
+<div class="flex items-center justify-between px-3 py-3 border-t border-slate-200 dark:border-sf-border">
+  <span class="text-xs text-slate-400 dark:text-slate-500">
+    {{ "{:,}".format((page - 1) * 50 + 1) }}&ndash;{{ "{:,}".format([page * 50, total_count] | min) }} of {{ "{:,}".format(total_count) }}
+    {% if dedup is defined and dedup == '1' and raw_count is defined and raw_count != total_count %}
+      <span class="text-slate-500 dark:text-slate-600">({{ "{:,}".format(raw_count) }} total)</span>
+    {% endif %}
+  </span>
+  <div class="flex gap-1">
+    {% for p in range(1, total_pages + 1) %}
+      {% if p <= 3 or p > total_pages - 2 or (p >= page - 1 and p <= page + 1) %}
+        <button
+          hx-get="/frag/events?id={{ scan_id }}&page={{ p }}"
+          hx-target="#event-rows"
+          hx-include="[name='q'],[name='type_filter'],[name='sort'],[name='group_by'],[name='dedup'],[name='category']"
+          class="px-2.5 py-1 text-xs rounded {{ 'bg-sf-accent/20 text-sf-accent font-medium' if p == page else 'bg-slate-100 dark:bg-sf-elevated text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200' }} transition-colors">
+          {{ p }}
+        </button>
+      {% elif p == 4 or p == total_pages - 2 %}
+        <span class="px-1 text-xs text-slate-400">&hellip;</span>
+      {% endif %}
+    {% endfor %}
+  </div>
+</div>
+{% elif total_count is defined and total_count > 0 %}
+<div class="px-3 py-2 text-xs text-slate-400 dark:text-slate-500 text-center border-t border-slate-200 dark:border-sf-border">
+  {{ "{:,}".format(total_count) }} events
+  {% if dedup is defined and dedup == '1' and raw_count is defined and raw_count != total_count %}
+    <span class="text-slate-500 dark:text-slate-600">({{ "{:,}".format(raw_count) }} total)</span>
+  {% endif %}
+</div>
+{% endif %}

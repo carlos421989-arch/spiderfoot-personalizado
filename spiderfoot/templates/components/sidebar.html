@@ -1,0 +1,104 @@
+{% import 'components/icons.html' as icons %}
+{# Collapsible sidebar -- expands on hover from 56px to 200px #}
+<aside class="sidebar fixed top-0 left-0 h-screen bg-white dark:bg-sf-surface border-r border-slate-200 dark:border-sf-border z-50 flex flex-col overflow-hidden">
+
+  {# ---- Logo / brand ---- #}
+  <div class="flex items-center h-14 px-4 border-b border-slate-200 dark:border-sf-border shrink-0">
+    {# Spider icon #}
+    <svg class="w-6 h-6 text-sf-accent shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M12 9V3M12 15v6M9 12H3M15 12h6M9.5 9.5 5 5M14.5 9.5 19 5M9.5 14.5 5 19M14.5 14.5 19 19"/>
+    </svg>
+    <span class="nav-label ml-3 text-sm font-semibold text-slate-700 dark:text-slate-200 tracking-wide">SpiderFoot</span>
+  </div>
+
+  {# Hover hint — visible only when collapsed #}
+  <div class="sidebar-expand-hint absolute right-1 top-1/2 -translate-y-1/2 text-slate-400/40 pointer-events-none">
+    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" d="m9 5 7 7-7 7"/>
+    </svg>
+  </div>
+
+  {# ---- Navigation items ---- #}
+  <nav class="flex-1 py-3 space-y-1">
+
+    {# Dashboard #}
+    <a href="{{ url_for('ui.dashboard') }}"
+       class="relative flex items-center h-10 px-4 rounded-r-lg transition-colors duration-150
+              {% if page_id == 'DASHBOARD' %}
+                bg-sf-accent/10 text-sf-accent
+              {% else %}
+                text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-sf-elevated hover:text-slate-700 dark:hover:text-slate-200
+              {% endif %}">
+      {% if page_id == 'DASHBOARD' %}
+        <span class="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-r bg-sf-accent"></span>
+      {% endif %}
+      {{ icons.home(class="w-5 h-5 shrink-0") }}
+      <span class="nav-label ml-3 text-sm font-medium">Dashboard</span>
+    </a>
+
+    {# New Scan #}
+    <a href="{{ url_for('ui.newscan') }}"
+       class="relative flex items-center h-10 px-4 rounded-r-lg transition-colors duration-150
+              {% if page_id == 'NEWSCAN' %}
+                bg-sf-accent/10 text-sf-accent
+              {% else %}
+                text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-sf-elevated hover:text-slate-700 dark:hover:text-slate-200
+              {% endif %}">
+      {% if page_id == 'NEWSCAN' %}
+        <span class="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-r bg-sf-accent"></span>
+      {% endif %}
+      {{ icons.plus(class="w-5 h-5 shrink-0") }}
+      <span class="nav-label ml-3 text-sm font-medium">New Scan</span>
+    </a>
+
+    {# Settings #}
+    <a href="{{ url_for('ui.settings') }}"
+       class="relative flex items-center h-10 px-4 rounded-r-lg transition-colors duration-150
+              {% if page_id == 'SETTINGS' %}
+                bg-sf-accent/10 text-sf-accent
+              {% else %}
+                text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-sf-elevated hover:text-slate-700 dark:hover:text-slate-200
+              {% endif %}">
+      {% if page_id == 'SETTINGS' %}
+        <span class="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-r bg-sf-accent"></span>
+      {% endif %}
+      {{ icons.cog_6_tooth(class="w-5 h-5 shrink-0") }}
+      <span class="nav-label ml-3 text-sm font-medium">Settings</span>
+    </a>
+
+    {# Auditoria pessoal: pesquisas publicas e galeria #}
+    <a href="{{ url_for('personal_audit.index') }}"
+       class="relative flex items-center h-10 px-4 rounded-r-lg transition-colors duration-150
+              {% if page_id == 'PERSONAL_AUDIT' %}
+                bg-sf-accent/10 text-sf-accent
+              {% else %}
+                text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-sf-elevated hover:text-slate-700 dark:hover:text-slate-200
+              {% endif %}">
+      <span class="w-5 h-5 shrink-0 text-center" aria-hidden="true">◎</span>
+      <span class="nav-label ml-3 text-sm font-medium">Minha Exposição</span>
+    </a>
+  </nav>
+
+  {# ---- Footer ---- #}
+  <div class="border-t border-slate-200 dark:border-sf-border py-3 px-4 space-y-2 shrink-0">
+
+    {# Theme toggle #}
+    <button data-theme-toggle
+            class="flex items-center w-full h-8 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors duration-150"
+            title="Toggle theme">
+      {# Sun icon (shown when dark mode is active -- click to switch to light) #}
+      <span class="icon-sun">{{ icons.sun(class="w-5 h-5 shrink-0") }}</span>
+      {# Moon icon (shown when light mode is active -- click to switch to dark) #}
+      <span class="icon-moon hidden">{{ icons.moon(class="w-5 h-5 shrink-0") }}</span>
+      <span class="nav-label ml-3 text-xs font-medium">Toggle Theme</span>
+    </button>
+
+    {# Version #}
+    <div class="flex items-center h-6 text-slate-400 dark:text-slate-500 text-xs">
+      <span class="shrink-0 w-5 text-center font-mono">v</span>
+      <span class="nav-label ml-3 font-mono">{{ version }}</span>
+    </div>
+  </div>
+
+</aside>

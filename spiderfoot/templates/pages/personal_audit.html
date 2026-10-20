@@ -1,0 +1,269 @@
+{% extends "base.html" %}
+{% block title %}Minha Exposição — SpiderFoot{% endblock %}
+{% block content %}
+<style>
+/* AUDITORIA_RELEVANCIA_V3: legibilidade dos cartoes da galeria */
+#auditoria-galeria article { background: #172033 !important; color: #f1f5f9 !important; }
+#auditoria-galeria article p, #auditoria-galeria article strong { color: #f1f5f9 !important; }
+#auditoria-galeria article .audit-confirm { color: #ffffff !important; }
+#auditoria-galeria article .audit-confirm[data-answer="minha"] { background: #047857 !important; }
+#auditoria-galeria article .audit-confirm[data-answer="nao_minha"] { background: #475569 !important; }
+</style>
+
+<style>
+/* AUDITORIA_CONTRASTE_V1 */
+
+/* Campos legiveis nos temas claro e escuro */
+#form-auditoria input:not([type="checkbox"]),
+#form-auditoria textarea,
+#form-auditoria select {
+    background-color: #ffffff !important;
+    color: #172033 !important;
+    -webkit-text-fill-color: #172033 !important;
+    caret-color: #172033 !important;
+    border: 1px solid #94a3b8 !important;
+    opacity: 1 !important;
+}
+
+#form-auditoria input::placeholder,
+#form-auditoria textarea::placeholder {
+    color: #64748b !important;
+    opacity: 1 !important;
+}
+
+#form-auditoria input:focus,
+#form-auditoria textarea:focus,
+#form-auditoria select:focus {
+    border-color: #0284c7 !important;
+    outline: 2px solid #38bdf8 !important;
+    outline-offset: 1px;
+}
+
+#form-auditoria input[type="checkbox"] {
+    accent-color: #0284c7;
+}
+
+/* Aviso de privacidade com contraste legivel */
+.audit-privacy-notice {
+    background-color: #fff7ed !important;
+    color: #78350f !important;
+    border-color: #f59e0b !important;
+}
+</style>
+
+<div class="max-w-7xl mx-auto space-y-6">
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <div>
+      <h1 class="text-2xl font-semibold text-slate-800 dark:text-slate-100">Minha Exposição Digital</h1>
+      <p class="text-slate-500 dark:text-slate-400 mt-2 text-sm">Auditoria de fontes públicas para seus próprios identificadores e galeria de imagens candidatas.</p>
+    </div>
+    <a class="text-sm px-3 py-2 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-100" href="/">Voltar ao SpiderFoot →</a>
+  </div>
+
+  <div class="audit-privacy-notice rounded-xl border border-amber-600/40 bg-amber-50 dark:bg-amber-950/20 px-5 py-4 text-sm text-amber-900 dark:text-amber-200">
+    <strong>Privacidade:</strong> a busca envia os identificadores informados aos buscadores públicos. O CPF exige autorização separada. As páginas que aparecerem poderão ser visitadas pelo servidor para identificar imagens. Fotos são <strong>candidatas</strong>: imagens de outras pessoas, logotipos e fotos genéricas podem aparecer. Esta ferramenta não faz reconhecimento facial nem acessa bases privadas. Não cobre toda a web.
+  </div>
+
+  <section class="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-sf-surface p-5 space-y-4">
+    <h2 class="text-lg font-semibold text-slate-800 dark:text-slate-100">Pesquisar minhas informações</h2>
+    <p class="text-xs text-slate-500 dark:text-slate-400">Informe apenas os identificadores que deseja consultar. Eles não são salvos como termos de pesquisa nos relatórios locais, mas os resultados públicos podem conter informações pessoais.</p>
+    <form id="form-auditoria" class="space-y-4" autocomplete="off">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <label class="text-sm text-slate-700 dark:text-slate-200">Nome completo
+          <input name="nome" type="text" maxlength="110" placeholder="Seu nome completo" autocomplete="off" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 px-3 py-2" />
+        </label>
+        <label class="text-sm text-slate-700 dark:text-slate-200">Meu e-mail
+          <input name="email" type="email" maxlength="180" placeholder="eu@exemplo.com" autocomplete="off" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 px-3 py-2" />
+        </label>
+        <label class="text-sm text-slate-700 dark:text-slate-200">Meu número de telefone
+          <input name="telefone" type="tel" maxlength="25" placeholder="+55 11 99999-9999" autocomplete="off" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 px-3 py-2" />
+        </label>
+        <label class="text-sm text-slate-700 dark:text-slate-200">Meu nome de usuário
+          <input name="usuario" type="text" maxlength="64" placeholder="@usuario" autocomplete="off" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 px-3 py-2" />
+        </label>
+        <label class="text-sm text-slate-700 dark:text-slate-200">Meu CPF — opcional
+          <input name="cpf" type="text" maxlength="14" inputmode="numeric" placeholder="000.000.000-00" autocomplete="off" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 px-3 py-2" />
+        </label>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <label class="text-sm text-slate-700 dark:text-slate-200">Profundidade da pesquisa
+          <select id="modo-busca" class="mt-1 w-full rounded-lg border px-3 py-2"
+                  style="background:#fff;color:#172033;-webkit-text-fill-color:#172033;">
+            <option value="rapida">Rapida (menos consultas)</option>
+            <option value="ampliada">Ampliada (mais paginas e buscadores)</option>
+            <option value="profunda" selected>Profunda (mais demorada, maior cobertura publica)</option>
+          </select>
+          <span class="block text-xs mt-1 text-slate-400">Profunda: ate 32 expressoes, 96 consultas HTTP e seis minutos de busca nos indices; pode parar antes por limites dos sites.</span>
+        </label>
+        <label class="text-sm text-slate-700 dark:text-slate-200">URLs de perfis que voce sabe que sao seus (opcional)
+          <textarea id="perfis-confirmados" rows="3" maxlength="7800" placeholder="https://www.exemplo.com/meu-perfil
+https://outro.exemplo.com/perfil"
+                    class="mt-1 w-full rounded-lg border px-3 py-2"
+                    style="background:#fff;color:#172033;-webkit-text-fill-color:#172033;"></textarea>
+          <span class="block text-xs mt-1 text-slate-400">Uma URL HTTPS publica por linha, ate 8. Ajuda a localizar imagens associadas a seus perfis; nao serve como prova automatica de identidade.</span>
+        </label>
+      </div>
+      <div class="space-y-3 text-sm text-slate-700 dark:text-slate-200">
+        <label class="flex gap-2 items-start"><input id="permitir-cpf" type="checkbox" class="mt-1" /> <span>Autorizo expressamente o envio do meu CPF aos mecanismos de busca públicos quando eu preencher o campo CPF.</span></label>
+        <label class="flex gap-2 items-start"><input id="buscar-fotos" type="checkbox" checked class="mt-1" /> <span>Buscar e armazenar localmente imagens candidatas das páginas públicas encontradas para nome, usuário ou e-mail.</span></label>
+        <label class="flex gap-2 items-start"><input id="autorizar-consulta" type="checkbox" required class="mt-1" /> <span>Confirmo que esses identificadores são meus (ou que tenho autorização) e consinto com a consulta externa.</span></label>
+      </div>
+      <div class="flex items-center flex-wrap gap-3">
+        <button id="btn-auditar" type="submit" class="rounded-lg px-5 py-2.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700">Pesquisar exposição pública</button>
+        <span id="status-auditoria" role="status" aria-live="polite" class="text-sm text-slate-500 dark:text-slate-300"></span>
+      </div>
+    </form>
+  </section>
+
+  {% if report %}
+  <section class="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-sf-surface p-5 space-y-4">
+    <div class="flex gap-3 flex-wrap items-center justify-between">
+      <div>
+        <h2 class="text-xl font-semibold text-slate-800 dark:text-slate-100">Resultado da auditoria</h2>
+        <p class="text-sm text-slate-500 dark:text-slate-400">{{ report.quando }} · {{ report.consultas }} consultas · {{ report.fontes|length }} páginas · {{ report.fotos|length }} imagens candidatas{% if report.get('estatisticas') %} · {{ report.estatisticas.requisicoes }} requisicoes aos indices{% endif %}</p>
+      </div>
+      <button id="btn-excluir" class="text-sm px-3 py-2 border rounded-lg border-rose-700/60 text-rose-600 dark:text-rose-300">Apagar esta auditoria local</button>
+    </div>
+    {% if report.avisos %}
+      <ul class="text-sm text-amber-800 dark:text-amber-200 space-y-1">
+        {% for aviso in report.avisos %}<li>• {{ aviso }}</li>{% endfor %}
+      </ul>
+    {% endif %}
+
+    {# AUDITORIA_CONSOLIDADA_V5 #}
+    <p class="text-xs text-amber-300">A pesquisa abrange fontes publicamente indexadas; nao consulta bases privadas de saude, documentos protegidos ou registros sigilosos. Nome coincidente nao identifica a pessoa.</p>
+    {% if report.get('versao_busca') == 'ampliada-v4' %}
+    <p class="text-sm text-cyan-200">Pesquisa {{ report.get('modo', 'ampliada') }}. Fontes com e-mail, usuario, CPF ou telefone completos aparecem primeiro. Nome identico pode ser homonimo. Links informados manualmente nao sao validados como seus.</p>
+    {% endif %}
+    {% if report.get('filtro_exato') %}
+    <p class="text-sm text-cyan-300">Filtro rigoroso ativo: somente paginas cujo titulo, resumo ou caminho contem um identificador completo pesquisado. Uma correspondencia textual nao confirma identidade.</p>
+    {% else %}
+    <p class="text-sm font-semibold text-amber-300">Auditoria anterior ao filtro de relevancia: resultados e fotos nao foram validados. Refaca a busca para obter resultados filtrados.</p>
+    {% endif %}
+    <h3 class="text-lg font-semibold text-slate-800 dark:text-slate-100 pt-2">Galeria de imagens candidatas</h3>
+    <p class="text-xs text-slate-500 dark:text-slate-400">Imagens sao obtidas apenas de paginas com correspondencia textual, mas NAO representam uma identificacao sua. Uma pagina pode conter fotos de terceiros. Confirme manualmente.</p>
+    {% if report.fotos %}
+      <div id="auditoria-galeria" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+      {% for foto in report.fotos %}
+        <article class="rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden bg-slate-50 dark:bg-slate-900">
+          <a href="{{ foto.origem }}" target="_blank" rel="noopener noreferrer" title="Ver página pública de origem">
+            <img loading="lazy" class="w-full h-44 object-cover bg-slate-200 dark:bg-slate-800" src="{{ url_for('personal_audit.image', run_id=report.id, filename=foto.arquivo) }}" alt="Imagem candidata: {{ foto.alt }}" />
+          </a>
+          <div class="p-3 space-y-2">
+            <p class="text-xs text-slate-700 dark:text-slate-200 truncate" title="{{ foto.titulo }}">{{ foto.titulo or 'Fonte pública' }}</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Status: <strong id="estado-foto-{{ loop.index0 }}">{{ {'minha':'É minha', 'nao_minha':'Não é minha', 'pendente':'Pendente'}[foto.confirmacao] }}</strong></p>
+            <div class="flex flex-wrap gap-1">
+              <button class="audit-confirm text-xs rounded px-2 py-1 bg-emerald-700 text-white" data-idx="{{ loop.index0 }}" data-answer="minha">É minha</button>
+              <button class="audit-confirm text-xs rounded px-2 py-1 bg-slate-600 text-white" data-idx="{{ loop.index0 }}" data-answer="nao_minha">Não é minha</button>
+            </div>
+          </div>
+        </article>
+      {% endfor %}
+      </div>
+    {% else %}
+      <p class="text-sm text-slate-500 dark:text-slate-400">Nenhuma foto candidata foi encontrada nas páginas consultadas. Isso não significa que suas fotos não estejam publicadas na internet.</p>
+    {% endif %}
+
+    <h3 class="text-lg font-semibold text-slate-800 dark:text-slate-100 pt-3">Fontes com correspondencia textual</h3>
+    {% if report.fontes %}
+      <div class="space-y-3">
+        {% for fonte in report.fontes %}
+        <article class="border-b border-slate-200 dark:border-slate-700 pb-3">
+          <p class="text-sm font-medium text-slate-800 dark:text-slate-100">{{ fonte.title or 'Resultado' }} <span class="text-xs text-slate-500">({{ fonte.tipo }})</span></p>
+          <a href="{{ fonte.url }}" target="_blank" rel="noopener noreferrer" class="block text-sm text-cyan-700 dark:text-cyan-400 break-all hover:underline">{{ fonte.url }}</a>
+          {% if fonte.get('confianca') == 'nome_igual' %}
+            <p class="text-xs font-semibold text-amber-300 mt-1">Possivel homonimo: so o nome coincide. A identidade nao foi comprovada.</p>
+          {% elif fonte.get('confianca') == 'informado_por_voce' %}
+            <p class="text-xs text-cyan-300 mt-1">Link fornecido por voce; conteudo e propriedade nao verificados.</p>
+          {% elif fonte.get('confianca') == 'identificador_literal' %}
+            <p class="text-xs text-cyan-300 mt-1">Identificador completo encontrado no indice; identidade ainda nao comprovada.</p>
+          {% endif %}
+          {% if fonte.get('coincidencias') %}<p class="text-xs text-cyan-300 mt-1">Identificador textual: {{ fonte.coincidencias|join(', ') }}. A identidade nao foi comprovada.</p>{% endif %}
+          {% if fonte.snippet %}<p class="text-xs text-slate-600 dark:text-slate-400 mt-1">{{ fonte.snippet }}</p>{% endif %}
+        </article>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="text-sm text-slate-500 dark:text-slate-400">Nenhum resultado com correspondencia textual completa foi obtido. Buscadores podem ignorar aspas, limitar ou nao indexar paginas; isso nao prova ausencia de exposicao.</p>
+    {% endif %}
+  </section>
+  {% endif %}
+
+  <section class="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-sf-surface p-5">
+    <h2 class="text-lg font-semibold text-slate-800 dark:text-slate-100">Auditorias anteriores</h2>
+    {% if history %}
+      <div class="mt-3 space-y-2 text-sm">
+        {% for item in history %}
+          <a class="block px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:underline" href="{{ url_for('personal_audit.result', run_id=item.id) }}">{{ item.quando }} · {{ item.tipos }} · {{ item.fontes }} páginas · {{ item.fotos }} imagens</a>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="text-sm text-slate-500 dark:text-slate-400 mt-2">Nenhuma auditoria realizada ainda.</p>
+    {% endif %}
+  </section>
+  <p class="text-xs text-slate-500 dark:text-slate-400">Dados locais em SPIDERFOOT_DATA/auditoria_pessoal. Os resultados dependem de indexação pública. Use os canais oficiais da Receita Federal e do Banco Central para dados cadastrais ou bancários; a auditoria web não substitui esses serviços.</p>
+</div>
+<script>
+(() => {
+  const csrf = {{ audit_csrf | tojson }};
+  /* AUDITORIA_CSRF_DUPLO_V1 */
+  const sessionCsrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
+  const form = document.getElementById('form-auditoria');
+  const status = document.getElementById('status-auditoria');
+  const button = document.getElementById('btn-auditar');
+  form.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const fd = new FormData(form);
+    const payload = {
+      nome: fd.get('nome'), email: fd.get('email'),
+      telefone: fd.get('telefone'), usuario: fd.get('usuario'), cpf: fd.get('cpf'),
+      consentimento: document.getElementById('autorizar-consulta').checked,
+      autorizar_cpf: document.getElementById('permitir-cpf').checked,
+      coletar_fotos: document.getElementById('buscar-fotos').checked,
+      modo: document.getElementById('modo-busca').value,
+      perfis_confirmados: document.getElementById('perfis-confirmados').value
+    };
+    button.disabled = true;
+    status.textContent = 'Consultando fontes públicas. Isso pode levar alguns minutos...';
+    try {
+      const r = await fetch('{{ url_for('personal_audit.search') }}', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-Audit-CSRF': csrf, 'X-CSRF-Token': sessionCsrf},
+        body: JSON.stringify(payload)
+      });
+      const rawResponse = await r.text();
+      let result;
+      try {
+        result = JSON.parse(rawResponse);
+      } catch (_) {
+        throw new Error('HTTP ' + r.status + ': ' + rawResponse.slice(0, 160));
+      }
+      if (!r.ok) throw new Error(result.error || 'Falha na pesquisa');
+      window.location.assign(result.url);
+    } catch (e) {
+      status.textContent = 'Erro: ' + e.message;
+      button.disabled = false;
+    }
+  });
+
+  {% if report %}
+  const id = {{ report.id | tojson }};
+  document.querySelectorAll('.audit-confirm').forEach(btn => btn.addEventListener('click', async () => {
+    const r = await fetch('/minha-exposicao/foto/' + id + '/' + btn.dataset.idx, {
+      method: 'POST', headers: {'Content-Type': 'application/json', 'X-Audit-CSRF': csrf, 'X-CSRF-Token': sessionCsrf},
+      body: JSON.stringify({confirmacao: btn.dataset.answer})
+    });
+    if (r.ok) document.getElementById('estado-foto-' + btn.dataset.idx).textContent =
+      btn.dataset.answer === 'minha' ? 'É minha' : 'Não é minha';
+  }));
+  document.getElementById('btn-excluir').addEventListener('click', async () => {
+    if (!window.confirm('Apagar esta auditoria, inclusive imagens locais?')) return;
+    const r = await fetch('/minha-exposicao/excluir/' + id, {
+      method: 'POST', headers: {'X-Audit-CSRF': csrf, 'X-CSRF-Token': sessionCsrf}
+    });
+    if (r.ok) window.location.assign('{{ url_for('personal_audit.index') }}');
+  });
+  {% endif %}
+})();
+</script>
+{% endblock %}

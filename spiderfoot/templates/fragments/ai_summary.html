@@ -1,0 +1,81 @@
+{# Inputs:
+     scan          - dict with .id, .target
+     ai_enabled    - bool
+     default_model - str
+     fallback_model - str
+     all_models    - [{id, label}, ...]
+     cached_models - list of {model_requested, model_used, created_at}
+     active_cache  - cached row dict for the selected model, or None
+#}
+{% if ai_enabled %}
+<div class="rounded-lg border border-gray-200 dark:border-gray-800 p-4 mt-4"
+     x-data="{
+         model: {{ selected | tojson | forceescape }},
+         streaming: false,
+         cacheByModel: {{ cache_by_model | tojson | forceescape }},
+         content: {{ (active_cache.content if active_cache else '') | tojson | forceescape }},
+         usage: {{ active_cache | tojson | forceescape }},
+         error: '',
+         switchModel() {
+             if (this.streaming) return;
+             const saved = this.cacheByModel[this.model] || null;
+             this.content = saved ? saved.content : '';
+             this.usage = saved;
+             this.error = '';
+             const url = new URL(window.location.href);
+             url.searchParams.set('model', this.model);
+             window.history.replaceState(null, '', url.toString());
+         },
+         usageText() {
+             if (!this.usage) return '';
+             const u = this.usage;
+             const cost = u.cost_usd == null ? 'cost unavailable' : '$' + Number(u.cost_usd).toFixed(4);
+             return (u.prompt_tokens || 0) + ' prompt tokens | ' +
+                    (u.completion_tokens || 0) + ' completion | ' +
+                    cost + ' | via ' + (u.model_used || 'unknown') +
+                    (u.truncation_note ? ' | ' + u.truncation_note : '');
+         },
+         startStream(regenerate) {
+             this.streaming = true;
+             this.error = '';
+             this.content = '';
+             this.usage = null;
+             const modelAtStart = this.model;
+             const url = `/frag/scan/{{ scan.id }}/summary?model=${encodeURIComponent(modelAtStart)}` +
+                         (regenerate ? '&regenerate=1' : '');
+             const es = new EventSource(url);
+             es.addEventListener('token', (e) => { this.content += e.data; });
+             es.addEventListener('done', () => {
+                 es.close();
+                 this.streaming = false;
+                 if (this.content.trim()) {
+                     this.cacheByModel[modelAtStart] = {content: this.content};
+                 }
+             });
+             es.addEventListener('error', (e) => {
+                 this.error = e.data || 'Stream interrupted.';
+                 es.close();
+                 this.streaming = false;
+             });
+         }
+     }">
+  <div class="flex items-center gap-2 mb-3">
+    <span class="font-semibold">AI Summary</span>
+    {% include 'components/model_picker.html' with context %}
+    <button type="button"
+            class="px-3 py-1 rounded bg-blue-600 text-white text-sm disabled:opacity-50"
+            :disabled="streaming"
+            @click="startStream(content && content.length > 0)">
+      <span x-show="!streaming && (!content || content.length === 0)">Generate</span>
+      <span x-show="!streaming && content && content.length > 0">Regenerate</span>
+      <span x-show="streaming">Streaming…</span>
+    </button>
+  </div>
+
+  <div class="prose dark:prose-invert max-w-none text-sm" x-text="content" style="white-space: pre-wrap; overflow-wrap: anywhere;"></div>
+
+  <p x-show="error" class="text-red-600 text-sm mt-2" x-text="error"></p>
+
+  <p x-show="usage" x-cloak class="text-xs text-gray-500 mt-3" x-text="usageText()"></p>
+</div>
+{% endif %}

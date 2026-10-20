@@ -1,0 +1,183 @@
+# SpiderFoot specific #
+#######################
+/cache/
+/log/
+/spiderfoot.db*
+passwd
+spiderfoot.crt
+spiderfoot.key
+
+# Compiled source #
+###################
+__pycache__/
+*.com
+*.class
+*.dll
+*.exe
+*.o
+*.so
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Packages #
+############
+*.7z
+*.dmg
+*.gz
+*.iso
+*.jar
+*.rar
+*.tar
+*.zip
+
+# Logs and databases #
+######################
+*.log
+*.sqlite
+*.db
+
+# OS generated files #
+######################
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+.*~
+Icon?
+ehthumbs.db
+Thumbs.db
+
+# Virtual environments #
+########################
+venv/
+venv3/
+
+# IDE #
+#######
+.idea
+.vscode
+
+# Test & Coverage Reports #
+###########################
+.coverage
+coverage/
+test/acceptance/results/
+htmlcov/
+report/
+.tox/
+.nox/
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# Documentation #
+#################
+docs/_build/
+
+# Node / Tailwind build artifacts #
+####################################
+node_modules/
+tailwindcss-*
+
+# Superpowers brainstorming files
+.superpowers/
+docs/superpowers/
+
+# === SPIDERFOOT: DADOS PRIVADOS ===
+
+# Python
+.venv/
+venv/
+env/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Credenciais e arquivos secretos
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+credentials.json
+token.json
+
+# Bancos de dados
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+*.sqlite-*
+
+# Dados de scans e auditorias
+.spiderfoot/
+spiderfoot-flask-test-data/
+auditoria_pessoal/
+scans/
+logs/
+cache/
+data/
+
+# Backups e copias antigas
+backup-*/
+*.bak
+*.backup
+
+# Arquivos temporarios e relatorios exportados
+*.log
+*.tmp
+*.temp
+*.csv
+*.jsonl
+*.ndjson
+*.zip
+
+# Sistema
+.DS_Store
+Thumbs.db
+
+
+# Backups adicionais encontrados no diagnostico
+*.backup-*
+*.backup_*
+*.backup
+*.orig
+*.rej
+*.swp
+
+# Arquivo inesperado identificado na raiz
+/-Pattern
+
+# Backups adicionais
+*.bak_*
+*.bak-*
