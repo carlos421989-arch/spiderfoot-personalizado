@@ -1,0 +1,27 @@
+REGISTRO DE ALTERACOES - V12
+
+Base: coletor do patch v11 e correcoes de nomenclatura do patch V4 fornecido.
+
+1. Integrado o analisador de conteudo interno de PDF e documentos Office.
+2. Novo download: depois de concluir o download e validar o arquivo, o coletor
+   le a capa/texto do documento, reconhece exame, ano, numero da prova e cor,
+   e renomeia/move o arquivo original dentro de resultados/materiais antes de
+   registrar o caminho no arquivos_baixados.csv.
+3. Arquivos antigos: organizar_resultados.py inclui normalize_downloads, que
+   renomeia arquivos existentes catalogados, confere SHA-256, cria backup do
+   CSV e registra relatorio_renomeacoes_downloads.csv.
+4. Acervo: o organizador cria copias nomeadas a partir do conteudo em
+   Documents/Acervo_Vestibulares; nao apaga copias anteriores.
+5. ENEM 2000-2008: PROVA 1 nao e confundida com 1o dia. Dia_Unico e atribuido
+   somente quando o documento nao indica explicitamente um exame em dois dias.
+6. Destinos existentes com outro SHA nao sao sobrescritos. Conflitos ficam
+   pendentes para revisao.
+7. Scripts Windows executam com o ambiente .venv do SpiderFoot quando existe.
+
+Testes executados neste ambiente: 3 testes offline passaram:
+- deteccao de ENEM 2002 / PROVA 1 - AMARELA / Dia_Unico;
+- renomeacao retroativa, atualizacao do CSV e copia ao acervo;
+- renomeacao no proprio fluxo de novo download.
+
+Limites: PDFs escaneados sem texto extraivel podem necessitar Tesseract OCR.
+O teste offline usa PDFs sinteticos; nao confirma o PDF real do usuario.

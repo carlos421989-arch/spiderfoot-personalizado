@@ -1,0 +1,15 @@
+PATCH: Repetir mecanismos já concluídos no coletor ENEM/FATEC
+
+Instalação segura
+1. Pare a coleta atual pela interface e aguarde o estado ficar parado.
+2. Faça backup dos três arquivos de destino abaixo. Não apague a pasta resultados.
+3. Extraia este ZIP na raiz da instalação SpiderFoot-Final que realmente está em uso, com substituição dos arquivos.
+4. Reinicie o SpiderFoot.
+5. Na página Coletor automático ENEM/FATEC, marque “Repetir mecanismos já concluídos” para forçar nova tentativa dos mecanismos selecionados.
+
+Arquivos alterados:
+- spiderfoot/blueprints/collector.py
+- spiderfoot/templates/pages/collector_enem_fatec.html
+- tools/Coletor_ENEM_FATEC/coletar_materiais.py
+
+O patch não apaga resultados, CSVs, marcadores de conclusão ou arquivos .part. Ele apenas acrescenta uma opção explícita para ignorar os marcadores históricos de sucesso durante a execução solicitada. Bloqueios HTTP, CAPTCHA, limites de requisição, APIs e mudanças no HTML do provedor ainda podem impedir resultados. Não há garantia de que todos os mecanismos retornem resultados em toda consulta.

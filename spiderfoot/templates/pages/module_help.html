@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Ajuda dos módulos - SpiderFoot{% endblock %}
+{% block content %}
+<div class="max-w-6xl mx-auto">
+  <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
+    <div><h1 class="text-2xl font-semibold text-slate-100">Guia de módulos do SpiderFoot</h1>
+    <p class="text-sm text-slate-400 mt-1">Ajuda em português baseada nos módulos carregados nesta instalação. Os nomes técnicos originais foram preservados para facilitar a busca e a configuração.</p></div>
+    <a href="/newscan" class="text-sm text-cyan-300 hover:underline">← Voltar para New Scan</a>
+  </div>
+  <div class="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 mb-5 text-sm text-amber-100">
+    <strong>Como usar este guia:</strong> cada módulo aceita determinados tipos de evento, listados como <em>entradas</em>, e pode gerar outros tipos, listados como <em>saídas</em>. Os códigos técnicos (por exemplo, <code>DOMAIN_NAME</code> ou <code>IP_ADDRESS</code>) permanecem em inglês porque são identificadores usados pelo SpiderFoot. As explicações em português ajudam a entender o significado. Resultados dependem da fonte, da conexão, das chaves de API, dos limites e das opções do módulo.
+  </div>
+  <input id="module-help-filter" type="search" placeholder="Buscar por nome do módulo, descrição, entrada ou saída..."
+         class="w-full rounded-md border border-sf-border bg-sf-elevated text-slate-100 px-3 py-2 mb-4">
+  <p class="text-xs text-slate-400 mb-4">Dica: pesquise pelo nome original, como <code>sfp_abuseipdb</code>, ou por um termo em português, como “reputação de IP”, “e-mail” ou “histórico”.</p>
+  <div id="module-help-list" class="space-y-3">
+  {% for m in modules %}
+    <details class="module-help-item rounded-lg border border-sf-border bg-sf-surface p-4" data-search="{{ (m.name ~ ' ' ~ m.description ~ ' ' ~ m.description_pt ~ ' ' ~ (m.consumes|join(' ')) ~ ' ' ~ (m.provides|join(' ')) ~ ' ' ~ (m.groups_pt|join(' ')))|lower }}">
+      <summary class="cursor-pointer flex flex-wrap items-start gap-3">
+        <span class="font-mono text-sm text-cyan-300 shrink-0">{{ m.name }}</span>
+        <span class="text-sm text-slate-300">{{ m.description_pt }}</span>
+      </summary>
+      <div class="mt-4 grid md:grid-cols-2 gap-4 text-sm">
+        <section class="rounded-md bg-sf-elevated/40 p-3">
+          <h3 class="font-semibold text-slate-200 mb-1">O que este módulo faz</h3>
+          <p class="text-slate-300">{{ m.description_pt }}</p>
+          <details class="mt-3"><summary class="cursor-pointer text-xs text-slate-400">Ver descrição original (inglês)</summary><p class="text-slate-400 mt-2">{{ m.description }}</p></details>
+          <h3 class="font-semibold text-slate-200 mt-4 mb-1">Categoria de uso</h3>
+          <p class="text-slate-400">{{ m.groups_pt|join(', ') if m.groups_pt else 'O módulo não informa uma categoria nos metadados.' }}</p>
+          {% if m.groups %}<p class="text-xs text-slate-500 mt-1">Identificadores originais: {{ m.groups|join(', ') }}</p>{% endif %}
+        </section>
+        <section class="rounded-md bg-sf-elevated/40 p-3">
+          <h3 class="font-semibold text-slate-200 mb-2">Entradas: o que o módulo precisa receber</h3>
+          {% if m.consume_help %}<ul class="space-y-2">{% for code, help in m.consume_help %}<li><code class="text-cyan-200">{{ code }}</code><p class="text-slate-400 text-xs mt-1">{{ help }}</p></li>{% endfor %}</ul>{% else %}<p class="text-slate-400">Nenhuma entrada foi declarada nos metadados. Consulte o código do módulo.</p>{% endif %}
+          <h3 class="font-semibold text-slate-200 mt-4 mb-2">Saídas: o que o módulo pode encontrar</h3>
+          {% if m.provide_help %}<ul class="space-y-2">{% for code, help in m.provide_help %}<li><code class="text-cyan-200">{{ code }}</code><p class="text-slate-400 text-xs mt-1">{{ help }}</p></li>{% endfor %}</ul>{% else %}<p class="text-slate-400">Nenhuma saída foi declarada nos metadados.</p>{% endif %}
+        </section>
+      </div>
+      <div class="mt-4"><h3 class="font-semibold text-slate-200 mb-2">Opções de configuração</h3>
+      {% if m.options %}<div class="overflow-x-auto"><table class="w-full text-xs"><thead><tr class="text-left text-slate-400"><th class="p-2">Chave original</th><th class="p-2">Valor padrão</th><th class="p-2">Explicação em português</th></tr></thead><tbody>
+      {% for opt in m.options %}<tr class="border-t border-sf-border align-top"><td class="p-2 font-mono text-cyan-200">{{ opt.key }}</td><td class="p-2 text-slate-300 break-all">{{ opt.default }}</td><td class="p-2 text-slate-400">{{ opt.description }}{% if opt.raw_description %}<details class="mt-1"><summary class="cursor-pointer text-slate-500">Descrição original</summary><p class="mt-1">{{ opt.raw_description }}</p></details>{% endif %}</td></tr>{% endfor %}
+      </tbody></table></div>{% else %}<p class="text-slate-400 text-xs">Este módulo não declarou opções configuráveis nos metadados.</p>{% endif %}</div>
+      <div class="mt-4 rounded-md border border-sf-border p-3"><h3 class="font-semibold text-slate-200 mb-1">Como utilizar</h3>
+        <ol class="list-decimal pl-5 space-y-1 text-slate-400 text-xs">
+          <li>Abra <strong>New Scan</strong> e informe um alvo compatível com as entradas do módulo.</li>
+          <li>Ative o módulo ou escolha um tipo de evento que ele consuma. O módulo não executa necessariamente uma pesquisa direta por qualquer texto.</li>
+          <li>Confira as opções. Para valores que contenham <code>api_key</code>, token ou segredo, configure a credencial em <strong>Settings</strong> e não a compartilhe.</li>
+          <li>Execute primeiro um scan pequeno e confira os resultados, erros e limites da fonte antes de ampliar a coleta.</li>
+        </ol>
+      </div>
+    </details>
+  {% endfor %}
+  </div>
+</div>
+<script>
+document.getElementById('module-help-filter')?.addEventListener('input', function () {
+  const q = this.value.trim().toLowerCase();
+  document.querySelectorAll('.module-help-item').forEach(el => {
+    el.hidden = q && !el.dataset.search.includes(q);
+  });
+});
+</script>
+{% endblock %}

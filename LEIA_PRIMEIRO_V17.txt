@@ -1,0 +1,11 @@
+PATCH V17 - CONTEXTO DA PASTA PARA DOCUMENTOS HISTORICOS
+
+Objetivo: corrigir documentos genericos, como 2000_PV_impresso.pdf, que estao dentro de resultados/materiais/ENEM/2000 mas eram classificados apenas por disciplina.
+
+Instalacao: parar o servidor, fazer backup e extrair este ZIP na raiz SpiderFoot-Final, mantendo a estrutura tools/Coletor_ENEM_FATEC.
+
+A alteracao usa a pasta de origem como evidencia complementar para identificar exame e ano quando o nome/capa nao forem suficientes. A consulta nao passa a ser usada como prova da classificacao.
+
+Teste: .\.venv\Scripts\python.exe .\tools\Coletor_ENEM_FATEC\testes_correcao_nomes_v12.py
+
+Depois, executar organizar_resultados.py --simular e revisar os resultados antes da organizacao definitiva. Arquivos .part continuam ignorados.

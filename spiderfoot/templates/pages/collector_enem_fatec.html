@@ -1,0 +1,284 @@
+{% extends "base.html" %}
+{% block title %}Coletor automático ENEM/FATEC - SpiderFoot{% endblock %}
+{% block content %}
+<div class="max-w-6xl mx-auto space-y-6">
+  <div><h1 class="text-2xl font-semibold text-slate-800 dark:text-slate-100">Coletor automático ENEM/FATEC</h1><p class="mt-2 text-sm text-slate-500 dark:text-slate-400">Pesquise materiais públicos, baixe documentos permitidos e acompanhe o progresso sem sair do SpiderFoot.</p></div>
+  <div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
+    <section class="xl:col-span-1 bg-white dark:bg-sf-surface border border-slate-200 dark:border-sf-border rounded-lg p-5 space-y-4">
+      <h2 class="font-semibold">Configuração da coleta</h2>
+      <p class="text-sm text-cyan-600 dark:text-cyan-300 font-semibold">Coleta exclusiva por consultas personalizadas</p>
+      <label class="block text-sm">Limite de pesquisas (0 = todas as consultas disponíveis)<input id="qlimit" type="number" min="0" max="1235" value="5" class="mt-1 w-full rounded border border-slate-300 dark:border-sf-border bg-transparent p-2"></label>
+      <div class="space-y-2 rounded border border-cyan-700/40 bg-cyan-950/10 p-3">
+        <label for="customqueries" class="block text-sm font-semibold">Consultas personalizadas</label>
+        <p class="text-xs text-slate-500 dark:text-slate-400">Cole suas pesquisas aqui, uma por linha. Linhas vazias e duplicadas serão ignoradas. Máximo de 1.000 consultas; cada uma pode ter até 1.000 caracteres.</p>
+        <textarea id="customqueries" rows="7" maxlength="100000" placeholder="videoclipes oficiais e vídeos licenciados
+tutoriais de programação para iniciantes
+manual de manutenção bicicleta PDF
+receitas vegetarianas passo a passo
+ENEM 2000 prova caderno questões PDF" class="mt-1 w-full rounded border border-slate-300 dark:border-sf-border bg-transparent p-3 font-mono text-sm">{{ saved_queries | e }}</textarea>
+        <div class="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400"><span id="querycount">0 consultas personalizadas</span><button type="button" id="clearqueries" class="text-cyan-600 dark:text-cyan-300 hover:underline">Limpar campo</button></div>
+        <p class="text-xs text-slate-500 dark:text-slate-400">Apenas as consultas listadas neste campo serão executadas. Os mecanismos selecionados serão utilizados para cada pesquisa. Limite 0 significa todas as linhas preenchidas; não serão adicionadas pesquisas gerais ou portais oficiais automaticamente. As pesquisas encadeadas de vídeos são geradas somente após um vídeo ter sido baixado com sucesso.</p>
+      </div>
+      <div class="space-y-2 rounded border border-violet-700/40 bg-violet-950/10 p-3">
+        <label for="module_results" class="block text-sm font-semibold">Importar resultados de módulos SpiderFoot (CSV/JSON)</label>
+        <p class="text-xs text-slate-500 dark:text-slate-400">Importe CSV ou JSON para acrescentar consultas ao campo acima, onde você poderá revisar as linhas antes de iniciar. Não executa pesquisas importadas automaticamente. A importação não lê o banco interno em tempo real.</p>
+        <input id="module_results" type="file" accept=".csv,.json,application/json,text/csv" class="block w-full text-xs text-slate-600 dark:text-slate-300">
+        <button id="importresults" type="button" class="px-3 py-2 rounded border border-violet-600 text-violet-700 dark:text-violet-200 text-sm">Importar resultados de módulos</button>
+        <div id="importstatus" class="text-xs text-slate-500 dark:text-slate-400">Nenhum arquivo importado nesta ação.</div>
+      </div>
+      <label class="block text-sm">Máximo de novos arquivos (0 = sem limite)<input id="flimit" type="number" min="0" max="5000" value="0" class="mt-1 w-full rounded border border-slate-300 dark:border-sf-border bg-transparent p-2"></label>
+      <label class="block text-sm">Tamanho máximo individual por mídia (MB; 0 = sem limite por arquivo; máximo 1.048.576 MB)<input id="midiamaxmb" type="number" min="0" max="1048576" value="0" class="mt-1 w-full rounded border border-slate-300 dark:border-sf-border bg-transparent p-2"></label>
+      <label class="block text-sm">Pausa entre pesquisas (segundos)<input id="pause" type="number" min="0" max="60" step="0.5" value="2" class="mt-1 w-full rounded border border-slate-300 dark:border-sf-border bg-transparent p-2"></label>
+      <div class="rounded border border-amber-700/40 bg-amber-950/10 p-3">
+        <label class="flex items-start gap-2 text-sm font-semibold" for="repetirconcluidas">
+          <input id="repetirconcluidas" type="checkbox" class="mt-1">
+          <span>Repetir mecanismos já concluídos</span>
+        </label>
+        <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Marque para tentar novamente todas as fontes selecionadas, inclusive as que constam no histórico como concluídas. Os resultados antigos são preservados; fontes indisponíveis, bloqueadas ou limitadas ainda podem falhar. Use uma pausa de 3 a 5 segundos para reduzir bloqueios.</p>
+      </div>
+      <div class="grid grid-cols-2 gap-3"><label class="block text-sm">Ano inicial<input id="yearstart" type="number" min="1900" max="2100" value="1998" class="mt-1 w-full rounded border border-slate-300 dark:border-sf-border bg-transparent p-2"></label><label class="block text-sm">Ano final<input id="yearend" type="number" min="1900" max="2100" value="2026" class="mt-1 w-full rounded border border-slate-300 dark:border-sf-border bg-transparent p-2"></label></div>
+      <details class="rounded border border-slate-200 dark:border-sf-border p-3" open>
+        <summary class="cursor-pointer text-sm font-semibold">Mecanismos de busca (marque as fontes)</summary>
+        <p class="text-xs text-slate-500 dark:text-slate-400 mt-2 mb-3">Todos os mecanismos configurados são selecionados por padrão. O coletor tenta cada fonte marcada para cada consulta; falhas e bloqueios ficam registrados em mecanismos_busca.csv e podem ser tentados novamente na próxima execução. MillionShort foi removido. SearXNG exige uma URL de instância real.</p>
+        <div class="flex flex-wrap gap-2 mb-3">
+          <button type="button" id="selectallengines" class="px-3 py-1 rounded border border-cyan-600 text-cyan-700 dark:text-cyan-200 text-xs">Selecionar todos os mecanismos configurados</button>
+          <button type="button" id="clearengines" class="px-3 py-1 rounded border border-slate-400 text-slate-700 dark:text-slate-200 text-xs">Desmarcar todos</button>
+          <span id="enginecount" class="self-center text-xs text-slate-500 dark:text-slate-400">25 mecanismos selecionados</span>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-72 overflow-y-auto">
+        {% for engine_id, engine_label, is_default in engine_choices %}
+          <label class="flex items-start gap-2 text-xs text-slate-700 dark:text-slate-300 rounded border border-slate-100 dark:border-sf-border p-2">
+            <input class="engine-choice mt-0.5" type="checkbox" value="{{ engine_id }}" {% if is_default %}checked{% endif %}>
+            <span>{{ engine_label }}</span>
+          </label>
+        {% endfor %}
+        </div>
+        <p class="text-xs mt-3 text-slate-500 dark:text-slate-400">Fontes descontinuadas ou especializadas podem não funcionar como busca web geral: Neeva foi encerrado; o antigo Creative Commons Search foi substituído pelo Openverse; Searchcode é especializado em código. SearXNG só será executado quando você informar uma instância funcional.</p>
+        <label class="block text-xs mt-3">URL da instância SearXNG (opcional; não use docs.searxng.org)
+          <input id="searxngurl" type="url" placeholder="https://sua-instancia-searxng.example" class="mt-1 w-full rounded border border-slate-300 dark:border-sf-border bg-transparent p-2">
+        </label>
+        <div class="mt-3 rounded border border-amber-700/40 bg-amber-950/10 p-3">
+          <label for="torsocksurl" class="block text-xs font-semibold">Proxy SOCKS5 do Tor (necessario para os buscadores .onion)</label>
+          <input id="torsocksurl" type="text" value="socks5h://127.0.0.1:9150" placeholder="socks5h://127.0.0.1:9150" class="mt-1 w-full rounded border border-slate-300 dark:border-sf-border bg-transparent p-2 font-mono">
+          <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">Inicie o Tor Browser antes da coleta (porta comum 9150) ou configure o servico Tor (comum 9050). O ambiente Python do SpiderFoot precisa de requests[socks]. Os cinco enderecos foram fornecidos por voce; sua identidade e disponibilidade nao foram verificadas. Links de destino .onion sao registrados, mas nao sao abertos nem baixados automaticamente.</p>
+        </div>
+      </details>
+      <div class="space-y-3 rounded border border-cyan-700/40 bg-cyan-950/10 p-3">
+        <label class="flex items-start gap-2 text-sm font-semibold">
+          <input id="buscarrelacionados" type="checkbox" checked class="mt-1">
+          <span>Buscar próximos vídeos e aulas relacionadas após cada download concluído</span>
+        </label>
+        <label class="block text-sm">Máximo de pesquisas adicionais por execução (0 = desativar)
+          <input id="maxrelacionados" type="number" min="0" max="100" value="12" class="mt-1 w-full rounded border border-slate-300 dark:border-sf-border bg-transparent p-2">
+        </label>
+        <p class="text-xs text-slate-500 dark:text-slate-400">Ex.: ENEM aulão 1 gera buscas por ENEM aulão 2 e ENEM aula 2 em todos os mecanismos habilitados que responderem. O encadeamento começa assim que o arquivo do vídeo termina de baixar, independentemente da lista de consultas. Limites, títulos e disponibilidade das fontes podem impedir encontrar todos os episódios. Só baixa vídeos quando as opções de mídia autorizada abaixo estiverem habilitadas.</p>
+      </div>
+      <div class="space-y-3 rounded border border-emerald-700/40 bg-emerald-950/10 p-3">
+        <h3 class="text-sm font-semibold">Buscas encadeadas de documentos e outros arquivos</h3>
+        <label class="flex items-start gap-2 text-sm font-semibold" for="buscardocumentos">
+          <input id="buscardocumentos" type="checkbox" checked class="mt-1">
+          <span>Após baixar documento, buscar provas, gabaritos, outras partes, cores e anos relacionados</span>
+        </label>
+        <label for="maxdocumentos" class="block text-sm">Máximo de novas pesquisas de documentos por execução (0 desativa; até 1200)
+          <input id="maxdocumentos" type="number" min="0" max="1200" value="960" class="mt-1 w-full rounded border border-slate-300 dark:border-sf-border bg-transparent p-2">
+        </label>
+        <p class="text-xs text-slate-500 dark:text-slate-400">Ex.: ENEM 2020 Dia 1 Caderno Amarelo gera primeiro buscas por Dia 2 da mesma cor e pelos respectivos gabaritos; depois as outras cores e anos até o Ano final. Dá prioridade ao mesmo domínio/mecanismo da origem e então às demais fontes marcadas. Para outros assuntos tenta variações pelo título. Uma varredura ENEM completa de 1998 até 2026 com oito cores pode gerar 928 consultas extras; reduza o limite para pesquisas menores. A sequência depende das informações reconhecíveis e é limitada pela quota e pelas fontes disponíveis; não promete encontrar todos os arquivos da internet.</p>
+      </div>
+      <div class="space-y-3 rounded border border-violet-700/40 bg-violet-950/10 p-3">
+        <h3 class="text-sm font-semibold">Limites independentes de downloads por tipo (GB)</h3>
+        <p class="text-xs text-slate-500 dark:text-slate-400">0 = sem limite. Cada teto soma apenas downloads novos desta execução. Se o PDF atingir o limite, PDF para, mas ZIP, DOC, vídeos e demais formatos continuam. Para vídeo use o campo de vídeos logo abaixo; .mp4 é um limite adicional específico. Se desejar limites só por GB, coloque Máximo de novos arquivos = 0.</p>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {% for budget_type, budget_name in [('.pdf','PDF'),('.txt','TXT'),('.doc','DOC'),('.docx','DOCX'),('.zip','ZIP'),('.ppt','PPT'),('.pptx','PPTX'),('.xls','XLS'),('.xlsx','XLSX'),('.odt','ODT'),('.ods','ODS'),('audio','Áudios'),('imagem','Imagens'),('.mp4','MP4'),('.webm','WEBM'),('outros','Outros')] %}
+          <label class="block text-xs">{{ budget_name }} (GB)
+            <input type="number" class="budget-type-input mt-1 w-full rounded border border-slate-300 dark:border-sf-border bg-transparent p-2" data-budget-type="{{ budget_type }}" min="0" max="10000" step="0.01" value="0">
+          </label>
+        {% endfor %}
+        </div>
+      </div>
+      <div class="space-y-3 rounded border border-cyan-700/40 bg-cyan-950/10 p-3">
+        <h3 class="text-sm font-semibold">Histórico e limite de downloads de vídeos</h3>
+        <label class="flex items-start gap-2 text-sm font-semibold" for="refazerantigos">
+          <input id="refazerantigos" type="checkbox" class="mt-1">
+          <span>Refazer downloads antigos (somente vídeos já excluídos)</span>
+        </label>
+        <p class="text-xs text-slate-500 dark:text-slate-400">Desmarcado: vídeos já baixados não serão baixados novamente, mesmo após serem excluídos pelo Telegram. O histórico permanente fica fora de resultados/ e aproveita registros anteriores. Marque para permitir baixar novamente vídeos ausentes; não altera o comportamento de PDFs, imagens ou outros materiais.</p>
+        <label class="block text-sm" for="limitetotalgb">Limite máximo de VÍDEOS nesta execução (GB, 0 = ilimitado)
+          <input id="limitetotalgb" type="number" min="0" max="10000" step="0.01" value="0" class="mt-1 w-full rounded border border-slate-300 dark:border-sf-border bg-transparent p-2">
+          <span class="text-xs text-slate-500 dark:text-slate-400">Este teto aplica-se somente a vídeos. A busca e o download de PDFs, ZIPs, documentos, imagens e áudios continuam. O limite geral de número de arquivos, se configurado, é independente.</span>
+        </label>
+        <label class="flex items-start gap-2 text-sm font-semibold" for="continuarencadeada">
+          <input id="continuarencadeada" type="checkbox" checked class="mt-1">
+          <span>Continuar busca encadeada de vídeos ao atingir o teto (sem baixar novos vídeos)</span>
+        </label>
+        <p class="text-xs text-slate-500 dark:text-slate-400">1 GB = 1.000.000.000 bytes. O teto vale para os arquivos concluídos nesta execução, não para a soma de arquivos antigos no disco. Ao atingir o teto de vídeos, o coletor avisa e bloqueia somente novos vídeos. Se marcada, as buscas relacionadas continuam, apenas catalogando links; outros tipos de arquivos continuam sendo baixados, respeitando seus próprios limites.</p>
+      </div>
+      <div class="space-y-3 rounded border border-indigo-700/40 bg-indigo-950/10 p-3">
+        <h3 class="text-sm font-semibold">Vídeos grandes para Telegram — V39</h3>
+        <label class="block text-sm" for="telegrammode">Quando um vídeo ultrapassar o tamanho configurado:
+          <select id="telegrammode" class="mt-1 w-full rounded border border-slate-300 dark:border-sf-border bg-transparent p-2">
+            <option value="desativado">Não preparar automaticamente</option>
+            <option value="compactar">Compactar em um MP4 menor</option>
+            <option value="dividir">Dividir em vários MP4 menores (sem recomprimir)</option>
+          </select>
+        </label>
+        <div class="grid grid-cols-2 gap-3">
+          <label class="block text-sm">Acionar acima de (GB)<input id="telegramlimitgb" type="number" min="0.001" max="100" step="0.01" value="4.00" class="mt-1 w-full rounded border border-slate-300 dark:border-sf-border bg-transparent p-2"></label>
+          <label class="block text-sm">Máximo por MP4 gerado (GB)<input id="telegramoutgb" type="number" min="0.001" max="100" step="0.01" value="3.50" class="mt-1 w-full rounded border border-slate-300 dark:border-sf-border bg-transparent p-2"></label>
+        </div>
+        <p class="text-xs text-slate-500 dark:text-slate-400">1 GB = 1 bilhão de bytes. Para enviar pelo Telegram, recomendamos acionar em 4,00 GB e gerar arquivos de até 3,50 GB. A compressão usa duas passagens e altera um pouco a qualidade; a divisão mantém a qualidade mas cria várias partes. FFmpeg e ffprobe devem estar instalados. Os originais, a contagem de downloads e o histórico permanente serão preservados. As cópias ficam em <code>_telegram_preparados/</code> ao lado de cada vídeo.</p>
+        <div class="flex flex-wrap gap-2"><button id="telegrambatch" type="button" class="px-3 py-2 rounded bg-indigo-700 text-white text-sm">Preparar também vídeos antigos existentes</button><button id="telegramcancel" type="button" class="px-3 py-2 rounded border border-rose-600 text-rose-700 dark:text-rose-200 text-sm" disabled>Cancelar preparação</button></div>
+        <p id="telegramstatus" class="text-xs text-slate-500 dark:text-slate-400" aria-live="polite">Os vídeos já baixados também podem ser preparados, sem baixá-los novamente.</p>
+        <pre id="telegramlog" class="max-h-40 overflow-auto whitespace-pre-wrap break-words text-xs font-mono"></pre>
+      </div>
+      <p class="text-xs text-slate-600 dark:text-slate-300">Vídeos: a V37 tenta salvar no formato MP4. Instale FFmpeg e deixe-o no PATH do Windows para conversão automática; se um vídeo não puder ser convertido, o original será preservado e a falha ficará registrada. Downloads em andamento não são interrompidos pelos tetos em GB.</p>
+      <div class="space-y-3 rounded border border-amber-700/40 bg-amber-950/10 p-3">
+        <label class="flex items-start gap-2 text-sm font-semibold">
+          <input id="baixarvideosyoutube" type="checkbox" class="mt-1">
+          <span>Baixar vídeos encontrados no YouTube</span>
+        </label>
+        <p class="text-xs text-slate-500 dark:text-slate-400">Ative somente para vídeos seus, licenciados para download ou cujo titular tenha autorizado o download. Não contorna login, paywall, DRM ou restrições de acesso.</p>
+        <label class="flex items-start gap-2 text-sm font-semibold">
+          <input id="baixarmidiaspublicas" type="checkbox" class="mt-1">
+          <span>Baixar mídias públicas das páginas visitadas (vídeos, áudio e imagens)</span>
+        </label>
+        <p class="text-xs text-slate-500 dark:text-slate-400">Baixa links diretos de mídia e tenta plataformas públicas compatíveis com yt-dlp. Use apenas conteúdo próprio, com licença ou autorização para download. Respeita os limites de arquivos e, quando configurado, de tamanho individual; não baixa conteúdo protegido por DRM, exige login ou está bloqueado. Arquivos ficam em resultados/midias/ e são registrados em midias_baixadas.csv.</p>
+      </div>
+      <div class="space-y-2 rounded border border-cyan-700/40 bg-cyan-950/10 p-3">
+        <label for="telegramchannels" class="block text-sm font-semibold">Canais públicos do Telegram (opcional)</label>
+        <p class="text-xs text-slate-500 dark:text-slate-400">Informe usernames públicos ou URLs públicas t.me, um por linha. O coletor também pesquisa páginas públicas indexadas por buscadores. Não acessa chats privados, grupos fechados ou links de convite que exijam participação.</p>
+        <textarea id="telegramchannels" rows="3" maxlength="10000" placeholder="canal_publico_exemplo
+https://t.me/s/outro_canal_publico" class="mt-1 w-full rounded border border-slate-300 dark:border-sf-border bg-transparent p-3 font-mono text-sm"></textarea>
+      </div>
+      <div class="flex flex-wrap gap-2"><button id="start" class="px-4 py-2 rounded bg-cyan-600 text-white text-sm font-medium">Iniciar coleta</button><button id="stop" class="px-4 py-2 rounded bg-amber-600 text-white text-sm font-medium" disabled>Interromper</button></div>
+      <div class="space-y-2 rounded border border-emerald-700/40 bg-emerald-950/10 p-3">
+        <h3 class="text-sm font-semibold">Analisar conteúdo e organizar arquivos existentes</h3>
+        <p class="text-xs text-slate-500 dark:text-slate-400">Coloque arquivos baixados manualmente em <code>tools/Coletor_ENEM_FATEC/resultados/entrada_arquivos</code>. O organizador analisa texto interno de PDF, DOCX, PPTX e XLSX; para vídeos, usa nome e tags disponíveis (ffprobe opcional). OCR e transcrição de áudio não são executados automaticamente.</p>
+        <div class="flex flex-wrap gap-2"><button type="button" id="organizepreview" class="px-3 py-2 rounded border border-emerald-600 text-emerald-700 dark:text-emerald-200 text-sm">Gerar prévia (não mover)</button><button type="button" id="organizeapply" class="px-3 py-2 rounded bg-emerald-700 text-white text-sm">Organizar e renomear</button></div>
+        <div id="organizestatus" class="text-xs text-slate-500 dark:text-slate-400">A prévia não move arquivos. A organização real move arquivos para a árvore de pastas e registra o manifesto.</div>
+      </div>
+      <a id="download" href="/api/collector/download" class="inline-block text-sm text-sf-accent hover:underline">Baixar resultados (ZIP)</a>
+      <p class="text-xs leading-5 text-slate-500 dark:text-slate-400">Recomendação: teste primeiro 3–5 consultas. O limite de arquivos limita somente downloads; o coletor continua tentando os mecanismos selecionados e as consultas definidas. A execução de todos os mecanismos pode demorar e sofrer bloqueios/limites do provedor. O programa não contorna login, CAPTCHA ou bloqueios.</p>
+    </section>
+    <section class="xl:col-span-2 bg-white dark:bg-sf-surface border border-slate-200 dark:border-sf-border rounded-lg p-5 space-y-3">
+      <div class="flex items-center justify-between gap-3"><h2 class="font-semibold">Estado e registros</h2><button id="refresh" class="text-sm text-sf-accent">Atualizar</button></div>
+      <div id="status" class="text-sm text-slate-500 dark:text-slate-400">Carregando estado...</div>
+      <section class="rounded-lg border border-slate-300 dark:border-slate-600 p-4 space-y-3" aria-labelledby="gbmon-title">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <h3 id="gbmon-title" class="font-semibold text-base">Monitor de limites de downloads (GB)</h3>
+          <span id="gbmon-updated" class="text-xs text-slate-500 dark:text-slate-300">Aguardando leitura...</span>
+        </div>
+        <p class="text-xs text-slate-600 dark:text-slate-300">Acompanha automaticamente a cada 4 segundos os limites que você definiu. Contabiliza apenas arquivos concluídos desta execução. Ao atingir um teto, a transferência já iniciada TERMINA e apenas o próximo download do formato fica bloqueado; o total pode ultrapassar o teto pelo último arquivo. Downloads em andamento ainda não aparecem.</p>
+        <p class="text-xs text-slate-600 dark:text-slate-300">V38: ao aparecer <strong>LIMITE ATINGIDO</strong>, escolha <strong>Redefinir limite</strong> no próprio cartão. Somente aquele contador volta a 0 GB, mantendo o teto configurado. Se outro limite também bloquear o download (ex.: Vídeos total e .mp4), redefina-o separadamente. O histórico permanente dos vídeos e os demais registros não serão apagados. Para não repetir vídeos já baixados mesmo se tiverem sido excluídos, mantenha <strong>Refazer downloads antigos</strong> desmarcado.</p>
+        <div id="gbmon-items" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3" aria-live="polite"></div>
+        <p id="gbmon-action-status" class="text-xs text-slate-600 dark:text-slate-300" aria-live="polite"></p>
+      </section>
+      <div id="budgetstatus" class="hidden text-sm font-bold p-3 rounded border-2 border-amber-300 bg-amber-950 text-white" role="alert" style="background-color:#78350f;color:#ffffff;border-color:#fbbf24"></div>
+      <pre id="log" class="min-h-96 max-h-[65vh] overflow-auto whitespace-pre-wrap break-words rounded bg-slate-950 text-slate-200 p-4 text-xs font-mono">Aguardando estado do coletor...</pre>
+    </section>
+  </div>
+</div>
+<script>
+(function(){
+ const $=id=>document.getElementById(id); const csrf=()=>document.querySelector('meta[name="csrf-token"]')?.content||'';
+ function percent(value){const n=Number(value);return Number.isFinite(n)?Math.max(0,Math.min(100,n)):0;}
+ function gb(value){const n=Number(value);return Number.isFinite(n)?n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:3}):'--';}
+ let isCollectorRunning=false;let pendingResets=new Set();
+ function monitorCard(name, info, typeKey){
+   const outer=document.createElement('div');outer.className='rounded-lg border border-slate-300 dark:border-slate-600 p-3 space-y-2';
+   const head=document.createElement('div');head.className='flex items-start justify-between gap-2';
+   const title=document.createElement('strong');title.className='text-sm break-words';title.textContent=name;
+   const badge=document.createElement('span');badge.className='text-xs font-bold';
+   badge.textContent=info.limite_atingido?'LIMITE ATINGIDO':`${gb(info.percentual)}%`;
+   badge.style.color=info.limite_atingido?'#f59e0b':'';
+   const actions=document.createElement('div');actions.className='flex flex-wrap justify-end items-center gap-2';actions.append(badge);
+   if(info.limite_atingido){
+     const reset=document.createElement('button');reset.type='button';reset.className='rounded border border-cyan-500 px-2 py-1 text-xs font-semibold text-cyan-700 dark:text-cyan-300 hover:bg-cyan-950/10 disabled:opacity-50 disabled:cursor-not-allowed';
+     reset.dataset.resetType=typeKey;reset.dataset.resetName=name;
+     const pending=pendingResets.has(typeKey);
+     reset.textContent=pending?'Redefinição pendente':'Redefinir limite';
+     reset.disabled=pending||!isCollectorRunning;
+     reset.title=isCollectorRunning?'Zera somente este contador; não apaga o histórico.':'Inicie uma coleta para redefinir o limite ao vivo.';
+     actions.append(reset);
+   }
+   head.append(title,actions);
+   const track=document.createElement('div');track.style.cssText='height:10px;border-radius:9px;background:#64748b;overflow:hidden';
+   track.setAttribute('role','progressbar');track.setAttribute('aria-label',name);track.setAttribute('aria-valuemin','0');track.setAttribute('aria-valuemax','100');track.setAttribute('aria-valuenow',String(percent(info.percentual)));
+   const fill=document.createElement('div');fill.style.cssText='height:100%;border-radius:9px;transition:width .25s';
+   fill.style.width=percent(info.percentual)+'%';fill.style.backgroundColor=info.limite_atingido?'#dc2626':percent(info.percentual)>=80?'#d97706':'#0891b2';track.append(fill);
+   const detail=document.createElement('p');detail.className='text-xs text-slate-700 dark:text-slate-200';
+   detail.textContent=`Usado: ${gb(info.baixado_gb)} GB / ${gb(info.limite_gb)} GB · Faltam ${gb(info.restante_gb)} GB`;
+   const cycle=document.createElement('p');cycle.className='text-xs text-slate-500 dark:text-slate-400';cycle.textContent='Ciclo de downloads: '+(info.ciclo||1);
+   outer.append(head,track,detail,cycle);return outer;
+ }
+ function renderGbMonitor(mon){
+   const area=$('gbmon-items');area.replaceChildren();const items=[];
+   if(mon?.videos)items.push(['Vídeos (total)',mon.videos,'videos']);
+   for(const [kind,info] of Object.entries(mon?.formatos||{}))items.push([kind,info,kind]);
+   if(items.length===0){const empty=document.createElement('p');empty.className='text-sm text-slate-500 dark:text-slate-300';empty.textContent='Nenhum limite em GB maior que zero encontrado nos registros desta execução (0 = ilimitado).';area.append(empty);}
+   else{items.forEach(([name,info,key])=>area.append(monitorCard(name,info,key)));}
+   $('gbmon-updated').textContent=(mon?.atualizado_em||mon?.atualizado_videos_em)?`Último registro: ${mon.atualizado_em||mon.atualizado_videos_em}`:'Sem registro atualizado';
+ }
+ async function refresh(){
+  try{
+   const r=await fetch('/api/collector/status',{credentials:'same-origin',cache:'no-store'});if(!r.ok)throw Error('HTTP '+r.status);
+   const d=await r.json();
+   const job=d.videos_processamento||{};
+   $('telegrambatch').disabled=!!d.running||!!job.executando;
+   $('telegramcancel').disabled=!job.executando;
+   $('telegramlog').textContent=job.log||'';
+   if(job.executando){$('telegramstatus').textContent='Preparando vídeos existentes (processamento em andamento)...';}
+   isCollectorRunning=!!d.running;
+   pendingResets=new Set(d.redefinicoes_pendentes||[]);
+   $('status').textContent=d.running?'Coleta em execução. PID ativo.':d.returncode===null?'Nenhuma coleta foi iniciada nesta sessão.':`Último processo finalizado (código ${d.returncode}).`;
+   $('log').textContent=d.log||'Nenhum registro ainda.';
+   const bs=d.download_budget;const limits=d.type_budgets?.formatos||{};
+   const reached=Object.entries(limits).filter(([k,v])=>v?.limite_atingido).map(([k,v])=>`${k}: ${v.baixado_gb}/${v.limite_gb} GB`);
+   const box=$('budgetstatus');
+   if(bs?.limite_atingido||reached.length){box.classList.remove('hidden');box.textContent=[bs?.limite_atingido?`⚠ VÍDEOS: ${bs.baixado_gb}/${bs.limite_gb} GB — novos vídeos suspensos`:null,reached.length?`⚠ FORMATOS COM LIMITE ATINGIDO: ${reached.join(', ')}`:null,'Os demais formatos continuam dentro de seus limites.'].filter(Boolean).join(' | ');}
+   else{box.classList.add('hidden');box.textContent='';}
+   renderGbMonitor(d.monitor_limites_gb);
+   $('log').scrollTop=$('log').scrollHeight;$('start').disabled=!!d.running;$('stop').disabled=!d.running;
+  }catch(e){$('status').textContent='Erro ao consultar estado: '+e.message;$('gbmon-updated').textContent='Falha na atualização';}
+ }
+ $('gbmon-items').addEventListener('click',async event=>{
+   const btn=event.target.closest('button[data-reset-type]');if(!btn||btn.disabled)return;
+   const kind=btn.dataset.resetType;const label=btn.dataset.resetName;
+   if(!confirm(`Redefinir somente o contador de ${label} para 0 GB? O limite em GB e o histórico de arquivos baixados serão mantidos.`))return;
+   btn.disabled=true;$('gbmon-action-status').textContent=`Solicitando redefinição de ${label}...`;
+   try{
+     const response=await fetch('/api/collector/redefinir-limite',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf()},body:JSON.stringify({tipo:kind})});
+     const data=await response.json();if(!response.ok)throw Error(data.error||`HTTP ${response.status}`);
+     $('gbmon-action-status').textContent=`${label}: pedido enviado. Aguardando confirmação do processo coletor; o histórico será mantido.`;
+   }catch(err){$('gbmon-action-status').textContent=`${label}: ${err.message}`;}
+   await refresh();
+ });
+ function telegramConfig(){
+   const cfg={telegram_video_modo:$('telegrammode').value,telegram_video_limite_gb:Number($('telegramlimitgb').value),telegram_video_saida_gb:Number($('telegramoutgb').value)};
+   if(!Number.isFinite(cfg.telegram_video_limite_gb)||!Number.isFinite(cfg.telegram_video_saida_gb)||cfg.telegram_video_saida_gb<.001||cfg.telegram_video_saida_gb>=cfg.telegram_video_limite_gb||cfg.telegram_video_limite_gb>100)throw Error('O tamanho gerado deve ser maior que 0 e menor que o limite de acionamento.');
+   return cfg;
+ }
+ $('telegrambatch').addEventListener('click',async()=>{
+   let cfg;try{cfg=telegramConfig();if(cfg.telegram_video_modo==='desativado')throw Error('Selecione Compactar ou Dividir.');}catch(err){$('telegramstatus').textContent=err.message;return;}
+   if(!confirm('Preparar os vídeos grandes JA EXISTENTES dentro de resultados/? O original e o histórico permanecerão intactos.'))return;
+   try{const r=await fetch('/api/collector/videos-processar',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf()},body:JSON.stringify(cfg)});const d=await r.json();if(!r.ok)throw Error(d.error||`HTTP ${r.status}`);$('telegramstatus').textContent='Preparação iniciada (PID '+d.pid+').';await refresh();}catch(e){$('telegramstatus').textContent='Erro: '+e.message;}
+ });
+ $('telegramcancel').addEventListener('click',async()=>{
+   if(!confirm('Cancelar a preparação atual? Os vídeos originais não serão apagados.'))return;
+   try{const r=await fetch('/api/collector/videos-cancelar',{method:'POST',credentials:'same-origin',headers:{'X-CSRF-Token':csrf()}});const d=await r.json();if(!r.ok)throw Error(d.error||`HTTP ${r.status}`);$('telegramstatus').textContent=d.message;await refresh();}catch(e){$('telegramstatus').textContent='Erro: '+e.message;}
+ });
+ $('start').addEventListener('click',async()=>{let vcfg;try{vcfg=telegramConfig();}catch(err){$('status').textContent='Configuração do Telegram inválida: '+err.message;return;}const payload={limite_pesquisas:$('qlimit').value,limite_arquivos:$('flimit').value,tamanho_max_midia_mb:$('midiamaxmb').value,pausa:$('pause').value,ano_inicial:$('yearstart').value,ano_final:$('yearend').value,mecanismos:[...document.querySelectorAll('.engine-choice:checked')].map(el=>el.value),searxng_url:$('searxngurl').value,tor_socks_url:$('torsocksurl').value,consultas_personalizadas:$('customqueries').value,buscar_videos_relacionados:$('buscarrelacionados').checked,max_buscas_relacionadas:$('maxrelacionados').value,buscar_documentos_relacionados:$('buscardocumentos').checked,max_buscas_documentos:$('maxdocumentos').value,limites_por_tipo_gb:Object.fromEntries([...document.querySelectorAll('.budget-type-input')].map(el=>[el.dataset.budgetType,Number(el.value||0)])),refazer_downloads_antigos:$('refazerantigos').checked,limite_total_gb:$('limitetotalgb').value,continuar_busca_encadeada:$('continuarencadeada').checked,baixar_videos_youtube:$('baixarvideosyoutube').checked,baixar_midias_publicas:$('baixarmidiaspublicas').checked,repetir_concluidas:$('repetirconcluidas').checked,telegram_canais:$('telegramchannels').value,...vcfg};$('status').textContent='Iniciando...';try{const r=await fetch('/api/collector/start',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf()},body:JSON.stringify(payload)});const d=await r.json();if(!r.ok)throw Error(d.error||`HTTP ${r.status}`);$('status').textContent='Coleta iniciada (PID '+d.pid+').';await refresh();}catch(e){$('status').textContent='Não foi possível iniciar: '+e.message;}});
+ $('stop').addEventListener('click',async()=>{if(!confirm('Interromper a coleta? O progresso já salvo será mantido.'))return;try{const r=await fetch('/api/collector/stop',{method:'POST',credentials:'same-origin',headers:{'X-CSRF-Token':csrf()}});const d=await r.json();if(!r.ok)throw Error(d.error||`HTTP ${r.status}`);$('status').textContent=d.message;await refresh();}catch(e){$('status').textContent='Não foi possível interromper: '+e.message;}});
+ function updateQueryCount(){const lines=$('customqueries').value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);const unique=[...new Set(lines.map(x=>x.toLocaleLowerCase()))];$('querycount').textContent=unique.length+' consulta(s) personalizadas';}
+ $('customqueries').addEventListener('input',updateQueryCount);$('clearqueries').addEventListener('click',()=>{$('customqueries').value='';updateQueryCount();$('customqueries').focus();});
+ function updateEngineCount(){const checked=document.querySelectorAll('.engine-choice:checked').length;$('enginecount').textContent=checked+' mecanismo(s) selecionado(s)';}
+ $('selectallengines').addEventListener('click',()=>{document.querySelectorAll('.engine-choice').forEach(el=>{el.checked=el.value!=='searxng';});updateEngineCount();});
+ $('clearengines').addEventListener('click',()=>{document.querySelectorAll('.engine-choice').forEach(el=>{el.checked=false;});updateEngineCount();});
+ document.querySelectorAll('.engine-choice').forEach(el=>el.addEventListener('change',updateEngineCount));
+ $('importresults').addEventListener('click',async()=>{const f=$('module_results').files[0];if(!f){$('importstatus').textContent='Selecione primeiro um arquivo CSV ou JSON.';return;}const fd=new FormData();fd.append('module_results',f);$('importstatus').textContent='Importando...';try{const r=await fetch('/api/collector/import-results',{method:'POST',credentials:'same-origin',headers:{'X-CSRF-Token':csrf()},body:fd});const d=await r.json();if(!r.ok)throw Error(d.error||`HTTP ${r.status}`);const box=$('customqueries');const existing=box.value.split(/\r?\n/).map(q=>q.trim()).filter(Boolean);const keys=new Set(existing.map(q=>q.toLocaleLowerCase()));let added=0;for(const q of (d.queries||[])){if(keys.has(q.toLocaleLowerCase())||existing.length>=1000)continue;const next=[...existing,q].join('\n');if(next.length>100000)break;existing.push(q);keys.add(q.toLocaleLowerCase());added++;}box.value=existing.join('\n');updateQueryCount();$('importstatus').textContent=d.message+' '+added+' consulta(s) adicionada(s) ao editor (revise antes de iniciar).';}catch(e){$('importstatus').textContent='Falha na importação: '+e.message;}});
+
+ async function organize(apply){if(apply&&!confirm('Organizar e renomear arquivos da pasta resultados/entrada_arquivos? Esta ação move arquivos; revise primeiro a prévia.'))return;$('organizestatus').textContent=apply?'Organizando arquivos...':'Gerando prévia...';try{const r=await fetch('/api/collector/organize',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf()},body:JSON.stringify({apply})});const d=await r.json();if(!r.ok)throw Error(d.error||`HTTP ${r.status}`);$('organizestatus').textContent=`${d.message} Arquivos encontrados: ${d.scanned??d.preview??0}.`; }catch(e){$('organizestatus').textContent='Falha na organização: '+e.message;}}
+ $('organizepreview')?.addEventListener('click',()=>organize(false));$('organizeapply')?.addEventListener('click',()=>organize(true));
+ $('refresh').addEventListener('click',refresh);updateQueryCount();updateEngineCount();refresh();setInterval(refresh,4000);
+})();
+</script>
+{% endblock %}

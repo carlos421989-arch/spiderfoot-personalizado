@@ -127,6 +127,30 @@
       </div>
     </div>
 
+    {# Expanded target reference and module help entry point #}
+    <div class="mt-4 rounded-lg border border-cyan-500/20 bg-cyan-500/5 p-4">
+      <h3 class="text-sm font-semibold text-cyan-300 mb-2">Guia detalhado de alvos e módulos</h3>
+      <p class="text-xs text-slate-300 mb-3">
+        Um alvo por linha. URLs completas HTTP/HTTPS são aceitas; o SpiderFoot converte a URL para o domínio
+        (hostname) e executa OSINT sobre esse host. O caminho específico, como <code>/produto/123</code>,
+        não é um alvo de primeira classe no núcleo e não significa que a página será rastreada integralmente.
+      </p>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+        <div class="rounded border border-sf-border p-2"><b class="text-cyan-300">Domínio</b><p class="text-slate-400 mt-1">Formato: <code>example.com</code>. DNS, subdomínios, certificados, WHOIS e tecnologias, conforme módulos ativos.</p></div>
+        <div class="rounded border border-sf-border p-2"><b class="text-cyan-300">URL completa</b><p class="text-slate-400 mt-1">Formato: <code>https://example.com/loja/item?id=1</code>. O host é usado como semente OSINT; caminho/query são informativos, não garantem rastreamento da página.</p></div>
+        <div class="rounded border border-sf-border p-2"><b class="text-cyan-300">IPv4 / IPv6</b><p class="text-slate-400 mt-1">Formato: <code>203.0.113.10</code> ou <code>2001:db8::1</code>. Endereço IP público; IPs privados têm módulos limitados.</p></div>
+        <div class="rounded border border-sf-border p-2"><b class="text-cyan-300">Sub-rede</b><p class="text-slate-400 mt-1">Formato CIDR: <code>192.0.2.0/24</code>. Use somente redes que você administra ou tem autorização para avaliar.</p></div>
+        <div class="rounded border border-sf-border p-2"><b class="text-cyan-300">E-mail</b><p class="text-slate-400 mt-1">Formato: <code>nome@example.com</code>. Pode correlacionar domínio, fontes públicas e exposição conforme módulos configurados.</p></div>
+        <div class="rounded border border-sf-border p-2"><b class="text-cyan-300">Telefone</b><p class="text-slate-400 mt-1">Formato internacional: <code>+5511999999999</code>. Resultados dependem dos módulos e das fontes disponíveis.</p></div>
+        <div class="rounded border border-sf-border p-2"><b class="text-cyan-300">Nome de pessoa</b><p class="text-slate-400 mt-1">Formato: <code>"Maria Silva"</code>. Use aspas para nomes com mais de uma palavra.</p></div>
+        <div class="rounded border border-sf-border p-2"><b class="text-cyan-300">Nome de usuário</b><p class="text-slate-400 mt-1">Formato: <code>"usuario123"</code>. Use aspas para distinguir um username de um nome comum.</p></div>
+        <div class="rounded border border-sf-border p-2"><b class="text-cyan-300">ASN</b><p class="text-slate-400 mt-1">Formato: <code>AS13335</code> ou <code>13335</code>, dependendo da detecção habilitada.</p></div>
+        <div class="rounded border border-sf-border p-2"><b class="text-cyan-300">Busca por palavra-chave</b><p class="text-slate-400 mt-1">Formato: <code>#termo de pesquisa</code>. Para pesquisas amplas de conteúdo, use também o Coletor ENEM/FATEC integrado.</p></div>
+        <div class="rounded border border-sf-border p-2 md:col-span-2"><b class="text-cyan-300">Busca de mídia</b><p class="text-slate-400 mt-1">Formato: <code>media:pdf example.com</code> ou <code>media:all</code>. Os tipos suportados dependem do módulo de mídia disponível.</p></div>
+      </div>
+      <a href="/module-help" class="inline-flex mt-3 text-sm text-cyan-300 hover:underline">Abrir guia de todos os módulos →</a>
+    </div>
+
     {# Optional scan name #}
     <div>
       <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">

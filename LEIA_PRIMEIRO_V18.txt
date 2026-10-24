@@ -1,0 +1,26 @@
+PATCH V18 - CLASSIFICACAO DE PROVAS CANCELADAS, GABARITOS DE DOIS DIAS E RELATORIO DE DOWNLOADS INCOMPLETOS
+
+Objetivos:
+- Reconhecer arquivos historicos como ENEM-2009-1-cancelado.pdf como prova cancelada do dia indicado.
+- Reconhecer a edicao como Aplicacao_Cancelada, sem tratar a prova como material generico.
+- Quando um PDF de GABARITO comprovar que cobre o 1o e o 2o dia, marcar Dia=Ambos e planejar uma copia organizada em cada pasta de dia.
+- Manter provas com dias conflitantes em revisao; nao inferir dia/cor sem evidencia.
+- Gerar relatorio de downloads temporarios sem apagar, renomear ou retomar arquivos.
+
+Instalacao:
+1. Pare o coletor/servidor e faca backup da pasta resultados.
+2. Extraia este ZIP na raiz SpiderFoot-Final, permitindo substituir os arquivos correspondentes em tools\Coletor_ENEM_FATEC.
+3. Rode os testes:
+   .\.venv\Scripts\python.exe .\tools\Coletor_ENEM_FATEC\testes_correcao_nomes_v12.py
+   .\.venv\Scripts\python.exe .\tools\Coletor_ENEM_FATEC\teste_relatorio_downloads_incompletos.py
+4. Simule a organizacao, sem modificar os arquivos:
+   .\.venv\Scripts\python.exe .\tools\Coletor_ENEM_FATEC\organizar_resultados.py --simular
+5. Crie o relatorio de temporarios:
+   .\.venv\Scripts\python.exe .\tools\Coletor_ENEM_FATEC\relatorio_downloads_incompletos.py
+   Saida: tools\Coletor_ENEM_FATEC\resultados\relatorio_downloads_incompletos.csv
+
+Seguranca:
+- O relatorio apenas classifica temporarios; nao apaga, renomeia ou retoma arquivos.
+- Nenhum arquivo .part e considerado completo.
+- A organizacao definitiva so deve ser executada depois de revisar a simulacao e os itens marcados para revisao.
+- Gabaritos consolidados so sao distribuidos entre os dois dias quando o proprio conteudo explicita os dois dias.

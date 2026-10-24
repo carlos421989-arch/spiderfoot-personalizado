@@ -1,0 +1,30 @@
+PATCH V26 — MODO ESTRITO DE CONSULTAS PERSONALIZADAS
+
+Objetivo
+Permitir uma coleta que use exclusivamente as consultas digitadas/coladas no campo Consultas personalizadas.
+
+O que muda
+- O modo da interface agora se chama “Somente consultas personalizadas (apenas linhas coladas abaixo)”.
+- Nesse modo, são usadas somente as linhas do campo enviado na execução.
+- A biblioteca de pesquisas ENEM/FATEC não é adicionada.
+- A biblioteca pesquisas_gerais.txt não é adicionada.
+- Consultas anteriormente importadas de CSV/JSON do SpiderFoot não são adicionadas silenciosamente.
+- A rotina de busca de portais oficiais continua desativada nesse modo.
+- Os demais modos continuam podendo combinar consultas personalizadas com listas padrão e consultas importadas conforme o comportamento anterior.
+
+Instalação
+1. Pare a coleta atual e feche o servidor SpiderFoot.
+2. Faça backup dos arquivos que serão substituídos.
+3. Extraia o ZIP na raiz da pasta SpiderFoot-Final, mantendo a estrutura de pastas.
+4. Execute o teste:
+   .\.venv\Scripts\python.exe .\teste_patch_v26_consultas_personalizadas.py
+5. Reinicie o SpiderFoot e escolha “Somente consultas personalizadas (apenas linhas coladas abaixo)”.
+6. Cole as consultas desejadas no campo. Para executar todas as linhas, configure Limite de pesquisas = 0.
+
+Arquivos deste patch
+- spiderfoot/blueprints/collector.py
+- spiderfoot/templates/pages/collector_enem_fatec.html
+- teste_patch_v26_consultas_personalizadas.py
+
+Segurança
+O patch não apaga pesquisas importadas, resultados, downloads ou históricos. Ele apenas impede que as consultas importadas sejam incluídas automaticamente quando o modo estrito de consultas personalizadas é selecionado. Os dados importados permanecem guardados para outros modos.

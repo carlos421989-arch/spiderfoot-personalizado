@@ -1,0 +1,23 @@
+SPIDERFOOT - PATCH V20
+Correcao de classificacao indevida como aplicacao cancelada
+
+OBJETIVO
+- Evitar que o ano antigo, a cor da prova, a consulta de pesquisa ou a pasta de origem marquem um documento como "Aplicacao_Cancelada".
+- Preservar a classificacao de cancelamento quando o nome do arquivo contem explicitamente "cancelado/cancelada" ou a capa apresenta uma declaracao clara de cancelamento junto da identificacao do exame.
+- Manter as correcoes anteriores de ENEM 2002, cores, gabaritos, caminhos Windows e arquivos .part.
+
+INSTALACAO
+1. Interrompa uma coleta em andamento e pare o servidor com Ctrl+C.
+2. Faça backup de tools\Coletor_ENEM_FATEC\resultados.
+3. Extraia este ZIP na raiz da pasta SpiderFoot-Final, permitindo substituir os arquivos correspondentes.
+4. Entre na pasta SpiderFoot-Final no PowerShell.
+5. Execute os testes:
+   .\.venv\Scripts\python.exe .\tools\Coletor_ENEM_FATEC\testes_correcao_nomes_v12.py
+6. Rode a simulacao sem aplicar alteracoes:
+   .\.venv\Scripts\python.exe .\tools\Coletor_ENEM_FATEC\organizar_resultados.py --simular *> "$HOME\Downloads\Simulacao_ENEM_FATEC_v20.txt"
+
+IMPORTANTE
+- Nao execute a organizacao definitiva ate revisar a simulacao.
+- O patch nao apaga nem move PDFs existentes.
+- A prova do ENEM 2002 continua sendo "Prova 1" em dia unico; isso nao significa "1o dia".
+- O teste de integracao de downloads novos depende do coletor completo que ja existe na instalacao.

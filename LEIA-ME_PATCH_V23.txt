@@ -1,0 +1,35 @@
+SpiderFoot / Coletor ENEM-FATEC — Patch v23
+
+OBJETIVO
+Corrigir problemas identificados no ZIP ativo enviado em 22/10/2026:
+- Openverse usava endpoint /v1/search/ e recebia HTTP 404; agora usa /v1/images/.
+- YouTube usava seletor restritivo a MP4; agora seleciona formatos compatíveis com a disponibilidade de FFmpeg.
+- Registra falhas de download do YouTube em resultados/youtube_downloads_falhos.csv.
+- Falha de download deixa o mecanismo YouTube elegível para nova tentativa em execução futura.
+- Procura arquivos Video_*_<ID>.*.part para retomar o mesmo nome/sequência em vez de avançar sempre para um novo número.
+- Yandex e Bing deixam de ser passados como backends DDGS que o log mostrou como indisponíveis; são consultados por suas páginas web. Startpage é adicionado como backend DDGS suportado no log recebido.
+- Preserva a opção de interface “Repetir mecanismos já concluídos”.
+
+ARQUIVOS DO PATCH (extrair na raiz SpiderFoot-Final)
+spiderfoot/blueprints/collector.py
+spiderfoot/templates/pages/collector_enem_fatec.html
+tools/Coletor_ENEM_FATEC/coletar_materiais.py
+teste_patch_v23.py
+
+INSTALAÇÃO SEGURA
+1. Pare a coleta atual pela interface e espere o status indicar que terminou.
+2. Entre na pasta ativa, normalmente:
+   $HOME\Downloads\SpiderFoot_Integrado_v2_Test_20261021\SpiderFoot-Final
+3. Faça backup dos três arquivos listados acima.
+4. Extraia o ZIP v23 na raiz SpiderFoot-Final, mantendo a estrutura de pastas.
+5. Execute:
+   .\.venv\Scripts\python.exe .\teste_patch_v23.py
+6. Se aparecer Ran 6 tests e OK, reinicie o SpiderFoot:
+   .\.venv\Scripts\python.exe .\sf.py -l 127.0.0.1:5005
+
+OBSERVAÇÕES
+- O patch não remove resultados, não apaga arquivos .part e não instala FFmpeg automaticamente.
+- Para formatos de vídeo separados (áudio + vídeo), FFmpeg é necessário. Sem FFmpeg, yt-dlp usa o melhor formato único disponível.
+- A correção não contorna HTTP 403, CAPTCHA, login, paywall, DRM ou restrições do provedor.
+- Alguns mecanismos ainda podem retornar 403/404/429 ou HTML incompatível; esses casos precisam ser verificados individualmente e não podem ser garantidos por um patch local.
+- O teste local valida sintaxe e os contratos básicos do patch; não simula download real do YouTube nem consulta serviços externos.

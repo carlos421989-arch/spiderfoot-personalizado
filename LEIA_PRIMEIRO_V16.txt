@@ -1,0 +1,15 @@
+SPIDERFOOT / COLETOR ENEM-FATEC - PATCH V16
+==========================================
+Corrige o erro do Windows em que Path.resolve() retornava caminhos curtos (8.3) para a pasta base e caminhos longos Unicode para os arquivos, fazendo relative_to() falhar.
+
+Instalacao:
+1. Pare a coleta e o servidor (Ctrl+C).
+2. Faça backup de tools/Coletor_ENEM_FATEC/resultados.
+3. Extraia este ZIP na raiz SpiderFoot-Final.
+4. Execute:
+   .venv\Scripts\python.exe tools\Coletor_ENEM_FATEC\testes_correcao_nomes_v12.py
+5. Se todos os testes passarem, execute primeiro:
+   .venv\Scripts\python.exe tools\Coletor_ENEM_FATEC\organizar_resultados.py --simular
+6. Revise os resultados antes de aplicar a organização definitiva.
+
+O patch não remove originais nem modifica arquivos .part. Ele corrige a verificação de caminhos para rejeitar links simbólicos que escapem de resultados/materiais sem depender de Path.resolve() em nomes de caminho diferentes.

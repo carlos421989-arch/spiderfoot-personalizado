@@ -1,0 +1,17 @@
+SpiderFoot - Patch V19
+Correção de teste multiplataforma para caminhos Windows/POSIX
+
+Motivo:
+O teste do gabarito combinado esperava separadores '/' (POSIX), enquanto o Windows imprime caminhos com '\\'. A simulação v18 já mostrou os dois destinos; o teste falhava apenas pela diferença de separadores.
+
+Instalação:
+Extraia este ZIP na raiz SpiderFoot-Final, permitindo substituir o arquivo:
+  tools\Coletor_ENEM_FATEC\testes_correcao_nomes_v12.py
+
+Este patch altera somente o teste de validação. Não altera PDFs, resultados, downloads, nem a lógica do organizador.
+
+Depois execute no PowerShell, dentro de SpiderFoot-Final:
+  .\.venv\Scripts\python.exe .\tools\Coletor_ENEM_FATEC\testes_correcao_nomes_v12.py
+  .\.venv\Scripts\python.exe .\tools\Coletor_ENEM_FATEC\teste_relatorio_downloads_incompletos.py
+
+Nota: os testes de integração exigem os arquivos do coletor completo já presentes na instalação.

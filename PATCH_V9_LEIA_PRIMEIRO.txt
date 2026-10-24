@@ -1,0 +1,23 @@
+PATCH v9 - COBERTURA DOS MECANISMOS DE BUSCA
+
+Base: SpiderFoot_Codigo_v8_para_patch.zip enviado pelo usuário.
+
+ALTERAÇÕES
+- MillionShort removido do catálogo ativo e da interface.
+- 24 mecanismos operacionais marcados por padrão: DuckDuckGo, Brave, Yandex (DDGS), Google, Bing, Yahoo, Mojeek, Wikipedia, Swisscows, Naver, Gibiru, Yandex web, Ecosia, YouTube, Boardreader, Internet Archive Scholar, AOL Search, Search Encrypt, Ask.com, Wiki.com, Gigablast, Blackle, Baidu e Openverse.
+- Botões para selecionar todos os mecanismos operacionais ou desmarcar todos.
+- SearXNG permanece opcional e exige URL de uma instância real; docs.searxng.org é documentação.
+- Cada tentativa registra consulta, mecanismo, status, URL e detalhe em resultados/mecanismos_busca.csv.
+- Erros, bloqueios e HTML não interpretável ficam elegíveis para nova tentativa. Os logs mostram status e contagem de resultados aceitos por mecanismo.
+- O limite de downloads não deve ser confundido com limite de tentativas de mecanismos.
+- Neeva está descontinuado; Creative Commons Search antigo foi substituído pelo Openverse; Searchcode é especializado em código e não é busca web geral, por isso não aparecem como mecanismos operacionais gerais.
+
+INSTALAÇÃO
+1. Pare a coleta pelo botão Interromper e depois pressione Ctrl+C na janela do servidor.
+2. Faça backup da pasta tools/Coletor_ENEM_FATEC/resultados.
+3. Extraia o pacote na pasta que contém sf.py (SpiderFoot-Final), sem apagar resultados.
+4. Reinicie: .\.venv\Scripts\python.exe .\sf.py -l 127.0.0.1:5005
+5. No Chrome, abra /coletor-enem-fatec e pressione Ctrl+F5.
+
+LIMITAÇÕES
+O coletor tenta todas as fontes operacionais selecionadas, mas não pode garantir que todos os provedores respondam. Sites podem bloquear automação, mudar o HTML, exigir JavaScript, limitar consultas ou estar descontinuados. Não contorna CAPTCHA, login ou paywall. YouTube retorna links; não baixa vídeos. Os testes desta preparação são estáticos/offline, sem garantia de disponibilidade real na internet.

@@ -234,6 +234,178 @@ def _build_modules_data():
     return modules, categories
 
 
+
+# Portuguese explanations for the module help page. Original module IDs,
+# option keys and event codes are intentionally kept unchanged.
+_MODULE_DESCRIPTIONS_PT = {
+    'sfp_abstractapi': 'Consulta a AbstractAPI para obter informações sobre domínios, telefones e endereços IP. Os dados retornados dependem das APIs e dos créditos disponíveis.',
+    'sfp_abusech': 'Verifica se um host, domínio, endereço IP ou bloco de rede aparece como malicioso nas fontes públicas do Abuse.ch.',
+    'sfp_abuseipdb': 'Consulta a reputação de um endereço IP no AbuseIPDB para identificar denúncias públicas de abuso. Configure uma chave de API em Settings quando necessário.',
+    'sfp_abusix': 'Verifica se um endereço IP ou bloco de rede consta em listas de reputação e bloqueio de e-mail do Abusix.',
+    'sfp_accounts': 'Procura perfis que possam estar associados a um nome de usuário em serviços e sites públicos. Correspondências precisam ser verificadas manualmente.',
+    'sfp_adblock': 'Compara URLs encontradas com uma lista de filtros para indicar quais páginas podem ser bloqueadas por regras semelhantes às do AdBlock Plus.',
+    'sfp_adguard_dns': 'Verifica se um host pode ser bloqueado pelo serviço de filtragem AdGuard DNS.',
+    'sfp_ahmia': 'Pesquisa menções ao alvo no mecanismo Ahmia, que indexa conteúdo acessível pela rede Tor. A disponibilidade e os resultados podem variar.',
+    'sfp_alienvault': 'Consulta informações públicas de inteligência de ameaças no AlienVault Open Threat Exchange (OTX).',
+    'sfp_alienvaultiprep': 'Consulta a reputação de um endereço IP no banco de reputação do AlienVault OTX.',
+    'sfp_apple_itunes': 'Pesquisa aplicativos móveis relacionados ao alvo na loja Apple iTunes/App Store.',
+    'sfp_archiveorg': 'Procura versões históricas de arquivos e páginas no Internet Archive/Wayback Machine. A existência de uma captura depende do arquivo histórico.',
+    'sfp_arin': 'Consulta o registro regional ARIN para obter dados públicos de alocação de endereços IP e informações de contato associadas.',
+}
+
+_TEXT_REPLACEMENTS_PT = [
+    ('Look up domain, phone and IP address information from', 'Consulta informações de domínio, telefone e endereço IP em'),
+    ('Check if a host/domain, IP address or netblock is malicious according to', 'Verifica se um host/domínio, endereço IP ou bloco de rede é considerado malicioso segundo'),
+    ('Check if an IP address is malicious according to', 'Verifica se um endereço IP é considerado malicioso segundo'),
+    ('Check if a netblock or IP address is in the', 'Verifica se um bloco de rede ou endereço IP consta na'),
+    ('Check if linked pages would be blocked by', 'Verifica se páginas vinculadas seriam bloqueadas por'),
+    ('Check if a host would be blocked by', 'Verifica se um host seria bloqueado por'),
+    ('Search Tor', 'Pesquisa na rede Tor usando'),
+    ("'Ahmia' search engine for mentions of the target.", "o mecanismo de busca 'Ahmia' por menções ao alvo."),
+    ('Obtain information from', 'Obtém informações de'),
+    ('Queries', 'Consulta'), ('registry for contact information.', 'o registro para encontrar informações públicas de contato.'),
+    ('Search', 'Pesquisa'), ('for mentions of the target.', 'por menções ao alvo.'),
+    ('Search Apple iTunes for mobile apps.', 'Pesquisa aplicativos móveis na Apple iTunes/App Store.'),
+    ('Identifies historic versions of interesting files/pages from the Wayback Machine.', 'Localiza versões históricas de arquivos e páginas na Wayback Machine.'),
+    ('Look for possible associated accounts on over 500 social and other websites such as Instagram, Reddit, etc.', 'Procura contas possivelmente associadas ao nome de usuário em centenas de sites e redes sociais. Os resultados são indícios, não confirmação de identidade.'),
+    ('domain', 'domínio'), ('phone', 'telefone'), ('IP address', 'endereço IP'), ('host/domain', 'host/domínio'),
+    ('netblock', 'bloco de rede'), ('malicious', 'malicioso'), ('according to', 'segundo'),
+    ('blacklist', 'lista de bloqueio'), ('blacklist.', 'lista de bloqueio.'), ('information', 'informações'),
+    ('historic versions', 'versões históricas'), ('interesting files/pages', 'arquivos/páginas relevantes'),
+    ('mobile apps', 'aplicativos móveis'), ('social and other websites', 'redes sociais e outros sites'),
+]
+
+_EVENT_HELP_PT = {
+    'DOMAIN_NAME': 'Nome de domínio, por exemplo example.org.',
+    'INTERNET_NAME': 'Nome de host ou nome de internet associado ao alvo.',
+    'IP_ADDRESS': 'Endereço IPv4.', 'IPV6_ADDRESS': 'Endereço IPv6.',
+    'NETBLOCK_OWNER': 'Organização ou entidade associada a um bloco de endereços IP.',
+    'EMAILADDR': 'Endereço de e-mail encontrado em fontes públicas.',
+    'PHONE_NUMBER': 'Número de telefone encontrado ou associado ao alvo.',
+    'HUMAN_NAME': 'Nome de pessoa identificado em fontes públicas.',
+    'SOCIAL_MEDIA': 'Perfil ou referência em rede social.',
+    'GEOINFO': 'Informação geográfica associada a um evento ou entidade.',
+    'PHYSICAL_COORDINATES': 'Coordenadas geográficas.',
+    'TCP_PORT_OPEN': 'Porta TCP identificada como aberta.',
+    'LINKED_URL_INTERNAL': 'URL do mesmo site ou domínio relacionado.',
+    'LINKED_URL_EXTERNAL': 'URL de outro site vinculada à página analisada.',
+    'URL_WEB_FRAMEWORK': 'Indício de framework ou tecnologia web.',
+    'URL_JAVASCRIPT': 'Arquivo ou recurso JavaScript relacionado à página.',
+    'INTERESTING_FILE': 'Arquivo considerado relevante por regras do módulo.',
+    'DARKNET_MENTION_URL': 'URL de menção localizada em fonte da rede Tor/dark web.',
+    'DARKNET_MENTION_CONTENT': 'Conteúdo de menção localizado em fonte da rede Tor/dark web.',
+    'MALICIOUS_IPADDR': 'Endereço IP marcado como malicioso por uma fonte de reputação.',
+}
+
+_GROUPS_PT = {
+    'Footprint': 'Reconhecimento inicial', 'Investigate': 'Investigação',
+    'Passive': 'Coleta passiva', 'All': 'Todos os grupos',
+    'Search': 'Pesquisa', 'Other': 'Outros',
+}
+
+_OPTION_HELP_PT = {
+    'api_key': 'Chave de API do provedor. Obtenha-a no site oficial do serviço e configure-a em Settings; não compartilhe a chave.',
+    'api_key_name': 'Nome da chave de API usada pelo provedor. Consulte a documentação oficial do serviço.',
+    'timeout': 'Tempo máximo de espera por resposta, normalmente em segundos. Valores maiores podem tornar a execução mais lenta.',
+    'useragent': 'Identificação do cliente enviada nas requisições HTTP.',
+    'max_pages': 'Número máximo de páginas que o módulo tentará consultar.',
+    'maxdepth': 'Profundidade máxima de navegação a partir da página inicial.',
+    'cacheperiod': 'Tempo de validade do cache antes de consultar novamente a fonte.',
+    'fetchlinks': 'Quando ativado, tenta obter links encontrados nas páginas consultadas.',
+    'fullnames': 'Quando ativado, tenta considerar nomes completos, quando suportado pela fonte.',
+    'checkaffiliates': 'Verifica entidades ou endereços relacionados/afiliados quando o módulo oferece esse recurso.',
+    'checkcohosts': 'Verifica outros hosts que compartilham a mesma infraestrutura, quando suportado.',
+    'checknetblocks': 'Inclui verificações de blocos de rede relacionados.',
+    'checksubnets': 'Inclui verificações de sub-redes relacionadas.',
+    'intfiles': 'Inclui arquivos interessantes na verificação histórica, quando disponível.',
+    'passwordpages': 'Inclui páginas relacionadas a senhas no escopo do módulo; isso não significa revelar senhas.',
+    'formpages': 'Inclui páginas que contêm formulários, quando suportado.',
+    'flashpages': 'Inclui recursos Flash históricos, quando suportado.',
+    'javapages': 'Inclui páginas ou recursos Java históricos, quando suportado.',
+    'staticpages': 'Inclui páginas e recursos estáticos.',
+    'uploadpages': 'Inclui páginas relacionadas a uploads, quando suportado.',
+    'webframeworkpages': 'Inclui páginas que indicam frameworks web.',
+    'javascriptpages': 'Inclui páginas ou recursos JavaScript.',
+    'blocklist': 'URL da lista de regras usada pelo módulo. Altere somente se souber qual lista é compatível.',
+}
+
+def _module_description_pt(name, description):
+    if name in _MODULE_DESCRIPTIONS_PT:
+        return _MODULE_DESCRIPTIONS_PT[name]
+    text = str(description or '').strip()
+    for old, new in _TEXT_REPLACEMENTS_PT:
+        text = text.replace(old, new)
+    if text and text != str(description or '').strip():
+        return text
+    if text:
+        return (f'Este módulo realiza a seguinte consulta: {text} '
+                'Use-o quando o alvo produzir um tipo de evento compatível. '
+                'Os resultados dependem da fonte, das opções e das credenciais configuradas.')
+    return ('O módulo não fornece uma descrição detalhada nos metadados desta instalação. '
+            'Consulte o nome do módulo, os eventos de entrada/saída e as opções abaixo antes de ativá-lo.')
+
+def _option_description_pt(key, value):
+    key_lower = str(key).lower()
+    if key_lower in _OPTION_HELP_PT:
+        return _OPTION_HELP_PT[key_lower]
+    for known, help_text in _OPTION_HELP_PT.items():
+        if key_lower.endswith(known) or known in key_lower:
+            return help_text
+    if 'api' in key_lower and ('key' in key_lower or 'token' in key_lower or 'secret' in key_lower):
+        return 'Credencial para acessar a API do provedor. Obtenha-a na fonte oficial e armazene-a em Settings; nunca a publique em relatórios.'
+    if any(word in key_lower for word in ('limit', 'max', 'count', 'pages', 'results')):
+        return 'Define um limite de itens consultados ou processados. Aumentar o valor pode ampliar o tempo de execução e o número de requisições.'
+    if any(word in key_lower for word in ('timeout', 'period', 'delay', 'sleep', 'cache')):
+        return 'Controla o tempo de espera, intervalo ou cache do módulo. Consulte a documentação da fonte para escolher um valor adequado.'
+    if any(word in key_lower for word in ('enable', 'check', 'fetch', 'include', 'use', 'verify')):
+        return 'Opção de ativação: True geralmente habilita o comportamento e False o desabilita. Confirme o efeito específico na documentação do módulo.'
+    return ('Parâmetro específico do módulo. A chave original foi mantida para compatibilidade; '
+            'como os metadados não fornecem uma descrição, consulte a documentação ou o código deste módulo antes de alterar o valor.')
+
+@ui_bp.route('/module-help')
+def module_help():
+    """Referência de módulos com explicações em português e IDs originais."""
+    cfg = current_app.config.get('SF_CONFIG', {})
+    raw_modules = cfg.get('__modules__', {}) or {}
+    modules = []
+    for name in sorted(raw_modules):
+        if '__' in name:
+            continue
+        meta = raw_modules.get(name, {}) or {}
+        opts = meta.get('opts', {}) or {}
+        consumes = meta.get('consumes', []) or []
+        provides = meta.get('provides', []) or []
+        groups = meta.get('group', []) or []
+        options = []
+        for key, val in opts.items():
+            if isinstance(val, dict):
+                default = val.get('default', '')
+                raw_desc = val.get('description') or val.get('type') or ''
+            else:
+                default = val
+                raw_desc = ''
+            options.append({
+                'key': key,
+                'default': default,
+                'description': _option_description_pt(key, val),
+                'raw_description': raw_desc,
+            })
+        modules.append({
+            'name': name,
+            'description': meta.get('descr', 'Sem descrição fornecida pelo módulo.'),
+            'description_pt': _module_description_pt(name, meta.get('descr', '')),
+            'opts': opts,
+            'options': options,
+            'consumes': consumes,
+            'provides': provides,
+            'groups': groups,
+            'groups_pt': [_GROUPS_PT.get(str(g), str(g)) for g in groups],
+            'consume_help': [(str(ev), _EVENT_HELP_PT.get(str(ev), 'Tipo de dado recebido pelo módulo; o identificador original foi mantido.')) for ev in consumes],
+            'provide_help': [(str(ev), _EVENT_HELP_PT.get(str(ev), 'Tipo de dado produzido pelo módulo; o identificador original foi mantido.')) for ev in provides],
+        })
+    return render_template('pages/module_help.html', page_id='MODULEHELP',
+                           version=__version__, modules=modules)
+
 @ui_bp.route('/newscan')
 def newscan():
     modules, categories = _build_modules_data()

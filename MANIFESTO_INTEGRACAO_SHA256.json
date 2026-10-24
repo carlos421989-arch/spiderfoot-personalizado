@@ -1,0 +1,21 @@
+{
+  "generated_from": "SpiderFoot-Final-Dados.zip",
+  "created_for": "SpiderFoot batch scan manager + ENEM/FATEC collector integration",
+  "files": {
+    "requirements.txt": "5facf12b0cf16b30ce2b895b1dd9e0b4a55e5f1e760aa7ad72e0e6ab9d48b105",
+    "spiderfoot/app.py": "d63a102e1e430cd5098e89d18f013efe5c8179e0000bcbc4d3782f75ff82b17e",
+    "spiderfoot/blueprints/api.py": "35f4b61bde060e91d8577d66eb409e1060d20253e475c3b2d51641b62619673a",
+    "spiderfoot/blueprints/collector.py": "ac707afe3d837cf7286a42edc5c477c0db3b82a3d3c635de690e235289660d47",
+    "spiderfoot/templates/components/scan_table.html": "fc92288f66ddd29466789e897dc940a6983f4d2db95dcbc37e8ec607acbd8553",
+    "spiderfoot/templates/components/scan_row.html": "e9c4b2e9110214578f65a1894048206e2942a53e153ef66afb136f46079650fa",
+    "spiderfoot/templates/components/sidebar.html": "0798f485b5512fa99eacf7951271c34f07314d300b8de04c80fb109d24dc33c9",
+    "spiderfoot/templates/pages/dashboard.html": "55547f8772bff7957a712271bf6b8ba4bfeff42dc4e392890f29ce31c8817f86",
+    "spiderfoot/templates/pages/collector_enem_fatec.html": "6a2c27666c9493f516235b8727e16867e0ee335532ea863c1ff95790ca77baab",
+    "tools/Coletor_ENEM_FATEC/coletar_materiais.py": "81664e0b5b9e9bb57bb3b41a62442ae20120d5880a1cb680fb69150224a9921a",
+    "tools/Coletor_ENEM_FATEC/pesquisas_unicas.txt": "2554c68c7bc5d022e68ab708a869ebc75926e6e08334c473c7a6910dbd7e4ba9",
+    "tools/Coletor_ENEM_FATEC/pesquisas_originais.txt": "13e3ae69956f7d16d533259ffce68edd824137728112d66a5fbb49df81f8edaa",
+    "tools/Coletor_ENEM_FATEC/README_LEIA_PRIMEIRO.txt": "426cdf3cac41328d4c721e2bddfbbdfe69a7f5598bc0dfa5aaa6d5af420bc567",
+    "INTEGRACAO_COLETOR_E_SCANS_EM_LOTE.md": "190eba8906614073e597b1accbcbc9db03ef193acd05d5002abce667662b81f8",
+    "MANIFESTO_INTEGRIDADE.json": "4427e5d870c05bc8d950c4a37a3edd78a06e49ea9526d8ede7b97874a8478008"
+  }
+}

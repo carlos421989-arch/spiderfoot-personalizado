@@ -1,6 +1,63 @@
 {% extends "base.html" %}
 {% block title %}Dashboard - SpiderFoot{% endblock %}
 
+{% block head %}
+<script id="sf-bulk-scan-manager">
+(function () {
+  const selected = new Set();
+  const token = () => document.querySelector('meta[name="csrf-token"]')?.content || '';
+  const rows = () => Array.from(document.querySelectorAll('.sf-scan-select'));
+  const visibleIds = () => rows().map(x => x.dataset.scanId).filter(Boolean);
+  const count = () => { const el=document.getElementById('sf-selected-count'); if(el) el.textContent=`${selected.size} selected`; };
+  function sync() {
+    rows().forEach(x => { x.checked=selected.has(x.dataset.scanId); });
+    const all=document.getElementById('sf-select-all-scans');
+    const ids=visibleIds();
+    if(all){all.checked=ids.length>0 && ids.every(id=>selected.has(id));all.indeterminate=ids.some(id=>selected.has(id))&&!all.checked;}
+    document.querySelectorAll('[data-sf-bulk]').forEach(b=>b.disabled=selected.size===0);
+    count();
+  }
+  document.addEventListener('change', e => {
+    if(e.target.matches('.sf-scan-select')) { const id=e.target.dataset.scanId; e.target.checked?selected.add(id):selected.delete(id); sync(); }
+    if(e.target.matches('#sf-select-all-scans')) { visibleIds().forEach(id=>e.target.checked?selected.add(id):selected.delete(id)); sync(); }
+  });
+  document.addEventListener('htmx:afterSwap', e => { if(e.target.id==='scan-tbody') sync(); });
+  function say(message){const el=document.getElementById('sf-bulk-message');if(el)el.textContent=message;}
+  async function post(path, values) {
+    const body=new URLSearchParams(values);
+    const response=await fetch(path,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8','X-CSRF-Token':token()},body});
+    if(!response.ok){let msg=`HTTP ${response.status}`;try{const j=await response.json();msg=j?.error?.message||j?.[1]||msg;}catch{}throw Error(msg);}
+    return response;
+  }
+  document.addEventListener('click', async e => {
+    const button=e.target.closest('[data-sf-bulk]'); if(!button)return;
+    const ids=Array.from(selected); if(!ids.length)return;
+    const action=button.dataset.sfBulk;
+    if(action==='delete'&&!confirm(`Delete ${ids.length} selected scan(s) and all their stored data? This cannot be undone.`))return;
+    if(action==='stop'&&!confirm(`Request stop for ${ids.length} selected scan(s)? Scans that are not running may be rejected.`))return;
+    button.disabled=true;say('Processing selected scans...');
+    try {
+      if(['stop','delete','rerun'].includes(action)) {
+        const r=await post('/api/scanbatchaction',{action,ids:ids.join(',')}); const data=await r.json();
+        if(data.error) throw Error(data.error.message||'Batch action failed');
+        const failures=(data.results||[]).filter(x=>!x.ok);
+        const summary=`${data.succeeded||0} succeeded; ${data.failed||0} skipped/failed.`;
+        say(summary+(failures.length?' Details: '+failures.slice(0,3).map(x=>x.id+': '+x.message).join(' | '):''));
+        if(action==='delete') { (data.results||[]).filter(x=>x.ok).forEach(x=>selected.delete(x.id)); document.body.dispatchEvent(new Event('sf-bulk-refresh')); }
+      }
+      else if(action==='export') {
+        const r=await post('/api/scanbatchzip',{ids:ids.join(',')}); const blob=await r.blob();
+        const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='SpiderFoot_scans_lote.zip';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);say(`ZIP generated for ${ids.length} scan(s).`);
+      }
+    } catch(err){say(`Operation incomplete: ${err.message}`);}
+    finally { button.disabled=selected.size===0; sync(); }
+  });
+  document.body.addEventListener('sf-bulk-refresh',()=>{const tbody=document.getElementById('scan-tbody');if(tbody&&window.htmx)window.htmx.trigger(tbody,'refresh');});
+  document.addEventListener('DOMContentLoaded',sync);setTimeout(sync,0);
+})();
+</script>
+{% endblock %}
+
 {% block content %}
 <div class="max-w-7xl mx-auto">
 

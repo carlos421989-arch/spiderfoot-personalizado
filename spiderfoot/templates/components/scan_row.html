@@ -37,10 +37,11 @@
   {% set badge_label = scan.status %}
 {% endif %}
 
-<tr class="border-t border-slate-100 dark:border-sf-border hover:bg-slate-50 dark:hover:bg-sf-elevated transition-colors">
+<tr data-sf-scan-row="{{ scan.id }}" class="border-t border-slate-100 dark:border-sf-border hover:bg-slate-50 dark:hover:bg-sf-elevated transition-colors">
   <td class="px-4 py-3" colspan="6">
     <div class="flex items-center justify-between mb-1">
       <div class="flex items-center gap-3">
+        <input type="checkbox" class="sf-scan-select accent-cyan-500" data-scan-id="{{ scan.id }}" aria-label="Select scan {{ scan.name }}">
         <span class="inline-block w-2 h-2 rounded-full {{ dot_class }}" style="{{ dot_extra }}"></span>
         <span class="font-mono text-sm text-slate-800 dark:text-slate-100">{{ scan.target }}</span>
         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ badge_class }}">

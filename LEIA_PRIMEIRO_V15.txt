@@ -1,0 +1,19 @@
+SPIDERFOOT / COLETOR ENEM-FATEC - PATCH V15
+==========================================
+
+O teste do usuario mostrou que a renomeacao antiga ainda falha em Windows em dois cenarios. O V15 altera o movimento para usar os.rename e preserva uma copia verificada por SHA-256 se o Windows impedir a remocao do original. Tambem registra a causa da falha no console, em vez de ocultar o erro.
+
+INSTALACAO
+1. Pare a coleta e o servidor (Ctrl+C).
+2. Faca backup de tools/Coletor_ENEM_FATEC/resultados.
+3. Extraia este ZIP na raiz SpiderFoot-Final, mantendo a estrutura.
+4. Execute os testes offline:
+   .venv\Scripts\python.exe tools\Coletor_ENEM_FATEC\testes_correcao_nomes_v12.py
+5. Se todos passarem, execute primeiro --simular:
+   .venv\Scripts\python.exe tools\Coletor_ENEM_FATEC\organizar_resultados.py --simular
+6. Revise o CSV de renomeacoes e somente depois aplique a organizacao definitiva.
+
+IMPORTANTE
+- Nunca renomeie arquivos .part/.crdownload/.tmp.
+- Se o Windows mantiver o arquivo original bloqueado, a copia de destino validada pode ser preservada e o indice aponta para ela; o original fica para revisao. Isso evita perda de dados.
+- O patch nao inclui nem substitui coletar_materiais.py: preserva a integracao de download v13 ja instalada.

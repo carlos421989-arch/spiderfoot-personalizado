@@ -1,0 +1,44 @@
+PATCH V25 — PESQUISAS GERAIS E DOWNLOAD DE MÍDIAS PÚBLICAS
+Compatível com a instalação SpiderFoot integrada usada na conversa, incluindo o suporte Tor/.onion do Patch V24.
+
+O QUE MUDA
+1. Novo modo “Pesquisas gerais” na interface: combina as consultas personalizadas com tools/Coletor_ENEM_FATEC/pesquisas_gerais.txt.
+2. O modo “Todos” inclui consultas personalizadas, a lista ENEM/FATEC existente, a nova biblioteca de pesquisas gerais e os portais oficiais.
+3. A biblioteca pesquisas_gerais.txt contém pesquisas sobre videoclipes, tutoriais, manuais, receitas, cursos abertos, podcasts, documentários, livros de domínio público, documentação técnica, fotografia, áudio, programação, jardinagem, artesanato e outras áreas.
+4. Nova opção “Baixar mídias públicas das páginas visitadas (vídeos, áudio e imagens)”. Ela está DESMARCADA por padrão.
+5. Com a opção ativada, o coletor tenta baixar links diretos de mídia encontrados em páginas públicas visitadas (HTML video/audio/source/img) e tenta yt-dlp em plataformas públicas suportadas, incluindo YouTube, Vimeo, Dailymotion, SoundCloud, Mixcloud, Twitch, TikTok, Internet Archive, Rumble, Odysee, Bilibili e Rutube.
+6. Os arquivos de mídia são guardados em resultados/midias/videos, resultados/midias/audio e resultados/midias/imagens. O índice é resultados/midias_baixadas.csv; erros são registrados em resultados/erros.csv e execucao.log.
+7. O limite de tamanho para mídia é configurável na interface, padrão 1024 MB (1 GB), máximo 4096 MB (4 GB). O limite global de novos arquivos continua se aplicando.
+8. O formato do yt-dlp usa bestvideo+bestaudio/best quando FFmpeg está disponível e best quando não está, em vez de forçar somente MP4.
+
+LIMITES IMPORTANTES
+- Use a opção de mídia apenas para arquivos próprios, licenciados ou cujo titular autorizou o download.
+- O coletor não contorna login, paywall, DRM, CAPTCHA ou restrições de acesso.
+- “Todos os sites visitados” significa links diretos de mídia encontrados nas páginas públicas visitadas e páginas de plataformas reconhecidas pelo yt-dlp. Não é possível garantir a extração de mídia de todos os sites: players JavaScript, DRM, formatos proprietários, conteúdo privado, páginas que exigem sessão e sites que bloqueiam automação podem não funcionar.
+- As consultas gerais procuram links; não garantem que o conteúdo exista, esteja acessível ou possa ser baixado.
+- Por padrão, o download geral de mídia fica desativado. Marque a opção na interface apenas quando tiver autorização para baixar o material encontrado.
+- Não faça coleta em massa de mídia de terceiros sem verificar direitos e termos de uso.
+
+INSTALAÇÃO WINDOWS
+1. Interrompa a coleta atual na interface e aguarde o processo terminar.
+2. Feche o servidor SpiderFoot com Ctrl+C na janela do PowerShell.
+3. Faça backup dos três arquivos que serão substituídos e de pesquisas_gerais.txt se já existir.
+4. Extraia o ZIP na raiz da pasta SpiderFoot-Final, preservando a estrutura de pastas.
+5. No PowerShell, vá à pasta SpiderFoot-Final e execute:
+   .\.venv\Scripts\python.exe -m pip install --upgrade yt-dlp
+6. Execute os testes:
+   .\.venv\Scripts\python.exe .\teste_patch_v23.py
+   .\.venv\Scripts\python.exe .\teste_patch_onion.py
+   .\.venv\Scripts\python.exe .\teste_patch_repetir_mecanismos.py
+   .\.venv\Scripts\python.exe .\tools\Coletor_ENEM_FATEC\teste_patch_v25_pesquisa_midia.py
+7. Reinicie:
+   .\.venv\Scripts\python.exe .\sf.py -l 127.0.0.1:5005
+8. Abra http://127.0.0.1:5005/coletor-enem-fatec.
+9. Selecione “Pesquisas gerais” para pesquisar a biblioteca geral, ou “Todos” para combinar ENEM/FATEC, pesquisas gerais e portais oficiais.
+10. Faça primeiro um teste com 5–10 consultas, limite de 3–5 segundos entre pesquisas e tamanho de mídia adequado ao espaço disponível. Marque o download de mídia somente quando autorizado.
+
+RESTAURAÇÃO
+Se houver problema, pare o servidor e restaure os arquivos do backup feito antes da instalação. Não apague resultados/midias nem arquivos .part sem revisar se são downloads retomáveis.
+
+VALIDAÇÃO
+Os testes locais verificam sintaxe, composição das consultas, opções de interface/API, catálogos de mídia e regressões anteriores. Eles não validam ao vivo todos os sites externos nem garantem que o yt-dlp consiga baixar todos os URLs.

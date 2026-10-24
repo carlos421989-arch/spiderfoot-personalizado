@@ -16,9 +16,11 @@ import sqlite3
 import string
 import time
 import uuid
+import zipfile
 from copy import deepcopy
 from io import BytesIO, StringIO
 from operator import itemgetter
+from urllib.parse import urlsplit
 
 from flask import Blueprint, Response, current_app, jsonify, request
 
@@ -621,6 +623,23 @@ def startscan():
     if not typelist and not modulelist and not usecase:
         return jsonify(["ERROR", "Incorrect usage: no modules specified for scan."])
 
+    # Accept a complete http(s) URL in the target field. SpiderFoot's core
+    # seed types are domain/IP/etc., not URL-path targets, so the host becomes
+    # the OSINT seed. Keep the original URL in the scan name if the path matters.
+    url_input = raw_scantarget.strip()
+    if re.match(r"(?i)^https?://", url_input):
+        try:
+            parsed_url = urlsplit(url_input)
+            if parsed_url.scheme.lower() not in ("http", "https") or not parsed_url.hostname:
+                return jsonify(["ERROR", "URL inválida. Use uma URL http:// ou https:// completa."])
+            if parsed_url.username or parsed_url.password:
+                return jsonify(["ERROR", "Não inclua usuário ou senha na URL de destino."])
+            raw_scantarget = parsed_url.hostname
+            scantarget = parsed_url.hostname
+            if not scanname:
+                scanname = url_input[:180]
+        except ValueError:
+            return jsonify(["ERROR", "URL inválida. Confira o endereço e tente novamente."])
     targetType = SpiderFootHelpers.targetTypeFromString(raw_scantarget)
     if targetType is None:
         return jsonify(["ERROR", "Unrecognised target type."])
@@ -1220,6 +1239,147 @@ def scanexportlogs():
         }
     )
 
+
+
+
+# -- Batch scan actions with per-scan outcomes -------------------------------
+
+@api_bp.route('/scanbatchaction', methods=['POST'])
+def scanbatchaction():
+    """Run stop, rerun, or delete independently and report partial failures."""
+    action = str(request.values.get('action', '')).lower()
+    ids = list(dict.fromkeys(x.strip() for x in request.values.get('ids', '').split(',') if x.strip()))
+    if action not in ('stop', 'rerun', 'delete'):
+        return jsonify_error('400', 'Unsupported batch action.')
+    if not ids or len(ids) > 200:
+        return jsonify_error('400', 'Select between 1 and 200 scans.')
+    if any(not re.fullmatch(r'[A-Za-z0-9_.:-]{1,150}', sid) for sid in ids):
+        return jsonify_error('400', 'Invalid scan ID.')
+
+    dbh = get_db()
+    outcomes = []
+    for sid in ids:
+        info = dbh.scanInstanceGet(sid)
+        if not info:
+            outcomes.append({'id': sid, 'ok': False, 'message': 'Scan not found.'})
+            continue
+        status = str(info[5] or '').upper()
+        try:
+            if action == 'stop':
+                if status not in ('RUNNING', 'STARTING'):
+                    outcomes.append({'id': sid, 'ok': False, 'message': f'Skipped: status is {status}.'})
+                    continue
+                dbh.scanInstanceSet(sid, status='ABORT-REQUESTED')
+                outcomes.append({'id': sid, 'ok': True, 'message': 'Stop requested.'})
+            elif action == 'delete':
+                if status in ('RUNNING', 'STARTING', 'STARTED', 'ABORT-REQUESTED'):
+                    outcomes.append({'id': sid, 'ok': False, 'message': f'Skipped: cannot delete scan in {status} state.'})
+                    continue
+                dbh.scanInstanceDelete(sid)
+                outcomes.append({'id': sid, 'ok': True, 'message': 'Deleted.'})
+            else:
+                from sflib import SpiderFoot
+                from sfscan import startSpiderFootScanner
+                config = get_config()
+                cfg = deepcopy(config)
+                scanconfig = dbh.scanConfigGet(sid)
+                if not scanconfig or not scanconfig.get('_modulesenabled'):
+                    outcomes.append({'id': sid, 'ok': False, 'message': 'Saved scan configuration unavailable.'})
+                    continue
+                target = info[1]
+                target_type = SpiderFootHelpers.targetTypeFromString(target)
+                if not target_type:
+                    target_type = SpiderFootHelpers.targetTypeFromString(f'"{target}"')
+                if not target_type:
+                    outcomes.append({'id': sid, 'ok': False, 'message': 'Unsupported target type.'})
+                    continue
+                if target_type not in ('HUMAN_NAME', 'BITCOIN_ADDRESS'):
+                    target = target.lower()
+                modlist = scanconfig['_modulesenabled'].split(',')
+                if 'sfp__stor_stdout' in modlist:
+                    modlist.remove('sfp__stor_stdout')
+                new_id = SpiderFootHelpers.genScanInstanceId()
+                proc = mp.Process(target=startSpiderFootScanner, args=(get_logging_queue(), info[0], new_id, target, target_type, modlist, cfg))
+                proc.daemon = True
+                proc.start()
+                outcomes.append({'id': sid, 'ok': True, 'message': f'Rerun started as {new_id}.', 'new_id': new_id})
+        except Exception as exc:
+            log.exception('Batch action %s failed for scan %s', action, sid)
+            outcomes.append({'id': sid, 'ok': False, 'message': str(exc)[:240]})
+    return jsonify({'action': action, 'results': outcomes,
+                    'succeeded': sum(1 for item in outcomes if item['ok']),
+                    'failed': sum(1 for item in outcomes if not item['ok'])})
+
+# -- Batch ZIP export --------------------------------------------------------
+
+@api_bp.route('/scanbatchzip', methods=['POST'])
+def scanbatchzip():
+    """Download logs and event results for selected scans as a single ZIP."""
+    ids_raw = request.values.get('ids', '')
+    ids = list(dict.fromkeys(x.strip() for x in ids_raw.split(',') if x.strip()))
+    if not ids:
+        return jsonify_error('400', 'Select at least one scan.')
+    if len(ids) > 200:
+        return jsonify_error('400', 'Select no more than 200 scans per export.')
+
+    dbh = get_db()
+    scans = []
+    for scan_id in ids:
+        if not re.fullmatch(r'[A-Za-z0-9_.:-]{1,150}', scan_id):
+            return jsonify_error('400', 'Invalid scan ID.')
+        info = dbh.scanInstanceGet(scan_id)
+        if not info:
+            return jsonify_error('404', f'Scan {scan_id} does not exist.')
+        scans.append((scan_id, info))
+
+    output = BytesIO()
+    with zipfile.ZipFile(output, 'w', compression=zipfile.ZIP_DEFLATED) as archive:
+        manifest = []
+        for scan_id, info in scans:
+            name = _safe_filename(str(info[0] or scan_id))
+            prefix = f'{name}_{scan_id}'
+            manifest.append({'id': scan_id, 'name': info[0], 'target': info[1], 'status': info[5]})
+            try:
+                logs = dbh.scanLogs(scan_id, None, 0, False) or []
+            except Exception as exc:
+                logs = []
+                log.warning('Unable to export logs for scan %s: %s', scan_id, exc)
+            logbuf = StringIO()
+            writer = csv.writer(logbuf)
+            writer.writerow(['timestamp', 'classification', 'component', 'message', 'row_id'])
+            for row in logs:
+                ts = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(row[0] / 1000)) if row and row[0] else ''
+                writer.writerow([ts, *(list(row[1:]))])
+            archive.writestr(f'{prefix}/logs.csv', logbuf.getvalue().encode('utf-8-sig'))
+
+            try:
+                events = dbh.scanResultEvent(scan_id) or []
+            except Exception as exc:
+                events = []
+                log.warning('Unable to export results for scan %s: %s', scan_id, exc)
+            eventbuf = StringIO()
+            writer = csv.writer(eventbuf)
+            writer.writerow(['updated', 'data', 'source_data', 'module', 'event_type', 'scan_id', 'false_positive'])
+            eventjson = []
+            for row in events:
+                if len(row) < 14 or row[4] == 'ROOT':
+                    continue
+                updated = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(row[0])) if row[0] else ''
+                record = {'updated': updated, 'data': str(row[1]).replace('<SFURL>', '').replace('</SFURL>', ''),
+                          'source_data': str(row[2]), 'module': str(row[3]), 'event_type': str(row[4]),
+                          'scan_id': scan_id, 'scan_name': info[0], 'scan_target': info[1],
+                          'false_positive': row[13]}
+                eventjson.append(record)
+                writer.writerow([record['updated'], record['data'], record['source_data'], record['module'],
+                                 record['event_type'], scan_id, record['false_positive']])
+            archive.writestr(f'{prefix}/results.csv', eventbuf.getvalue().encode('utf-8-sig'))
+            archive.writestr(f'{prefix}/results.json', json.dumps(eventjson, ensure_ascii=False, indent=2).encode('utf-8'))
+        archive.writestr('manifest.json', json.dumps(manifest, ensure_ascii=False, indent=2).encode('utf-8'))
+    output.seek(0)
+    return Response(output.getvalue(), mimetype='application/zip', headers={
+        'Content-Disposition': 'attachment; filename="SpiderFoot_scans_lote.zip"',
+        'Cache-Control': 'no-store'
+    })
 
 # -- Scan correlations export ------------------------------------------------
 

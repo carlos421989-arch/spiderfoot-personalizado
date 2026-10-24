@@ -338,3 +338,21 @@ All notable changes to the SpiderFoot Revival project.
 - Removed: 11 dead modules
 - Added: 22 new modules
 - **Current: 244 modules**
+
+## Coletor de busca — atualização de mecanismos
+- Adicionada seleção de mecanismos na interface do coletor.
+- Incluídos backends DDGS e adaptadores opcionais para fontes adicionais listadas pelo usuário.
+- Adicionado relatório `resultados/mecanismos_busca.csv`.
+- Documentadas fontes descontinuadas, fontes especializadas e limitações de scraping.
+
+## v5 — Integração por exportação e organização inteligente
+- Adicionada importação de resultados CSV/JSON exportados de qualquer scan/módulo SpiderFoot para gerar consultas do coletor.
+- Adicionada classificação de downloads por exame/categoria, ano, tipo de material, assunto e cor do caderno quando identificável.
+- Gabaritos explicitamente gerais ou associados a múltiplas cores são relacionados às pastas dos cadernos correspondentes; associações e metadados ficam registrados em CSV.
+- A classificação é heurística e deve ser revisada; cores não identificadas não são presumidas.
+
+## v6 — Organização baseada em conteúdo
+- Extração de texto de PDF/DOCX/PPTX/XLSX e formatos textuais para melhorar classificação e nomes de arquivos novos.
+- Organizador de arquivos locais na pasta resultados/entrada_arquivos, com prévia antes de mover.
+- Vídeos locais organizados por assunto/ano e numerados por pasta; ffprobe opcional para tags. Streaming links continuam links, sem download automático.
+- Manifesto e relatório CSV de origem/destino, tipo de material, cor e método de análise.

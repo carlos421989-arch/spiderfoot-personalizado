@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Fontes independentes — Minha Exposição Digital{% endblock %}
+{% block content %}
+<div class="max-w-5xl mx-auto space-y-6">
+  <header class="flex justify-between items-start gap-4 flex-wrap">
+    <div>
+      <h1 class="text-2xl font-semibold text-slate-100">Fontes independentes e oficiais</h1>
+      <p class="text-slate-300 mt-2">Alternativas para auditar seus próprios dados sem depender da conta de uma plataforma comercial.</p>
+    </div>
+    <a href="{{ url_for('personal_audit.index') }}" class="rounded-lg px-4 py-2 border border-slate-500 text-slate-100">Voltar à auditoria</a>
+  </header>
+  <section class="rounded-xl border border-sky-600 bg-slate-900 p-5 text-slate-100">
+    <h2 class="font-semibold">Funcionamento e limites</h2>
+    <p class="mt-2">Esta seção apresenta fontes públicas e canais oficiais. Os links não carregam CPF, e-mail, telefone ou outro identificador nos endereços. Alguns canais exigem autenticação própria do titular. Não acessamos serviços privados por meio de cookies, endpoints internos ou sessões de terceiros.</p>
+  </section>
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+  {% for fonte in fontes %}
+    <article class="rounded-xl border border-slate-600 bg-slate-900 p-5 text-slate-100 space-y-3">
+      <h2 class="font-semibold text-lg">{{ fonte.nome }}</h2>
+      <p class="text-sm text-slate-200">{{ fonte.descricao }}</p>
+      <p class="text-sm text-slate-300"><strong>Tipo:</strong> {{ fonte.tipo }}</p>
+      <p class="text-sm text-slate-300"><strong>Acesso:</strong> {{ fonte.autenticacao }}</p>
+      <a href="{{ fonte.url }}" {% if fonte.url.startswith('https://') %}target="_blank" rel="noopener noreferrer"{% endif %}
+         class="inline-block rounded-lg bg-blue-700 hover:bg-blue-800 border border-blue-500 px-4 py-2 text-white">Abrir fonte</a>
+    </article>
+  {% endfor %}
+  </div>
+  <p class="text-sm text-slate-400">Fontes de terceiros não são parte do SpiderFoot. Dados não são importados automaticamente. Use apenas serviços compatíveis com a finalidade e autorização de sua auditoria.</p>
+</div>
+{% endblock %}

@@ -1,0 +1,18 @@
+PATCH V21 - PRESERVAR CANCELAMENTO EM NOMES COM SUFIXO HASH
+
+Objetivo
+- Corrigir a detecção de nomes como enem-2009-1-cancelado_af480c318d.pdf.
+- Preservar o estado Aplicacao_Cancelada e o dia explícito para provas de 2009 canceladas.
+- Manter gabaritos cancelados classificados como gabaritos, sem convertê-los em provas.
+- Continuar impedindo que provas históricas de 2000-2005 sejam marcadas como canceladas sem evidência explícita.
+
+Instalação
+1. Pare o SpiderFoot e faça backup de tools\Coletor_ENEM_FATEC.
+2. Extraia o ZIP na raiz SpiderFoot-Final, permitindo substituir os arquivos correspondentes.
+3. Execute:
+   .\.venv\Scripts\python.exe .\tools\Coletor_ENEM_FATEC\testes_correcao_nomes_v12.py
+4. Se todos os testes passarem, execute a simulação --simular e confira os nomes antes de organizar os arquivos reais.
+
+Segurança
+- O patch não renomeia nem apaga arquivos por si só; atualiza código e testes.
+- Não execute a organização definitiva até revisar a simulação.

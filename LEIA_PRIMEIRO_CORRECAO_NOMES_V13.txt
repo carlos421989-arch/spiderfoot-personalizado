@@ -1,0 +1,46 @@
+SPIDERFOOT / COLETOR ENEM-FATEC - PATCH V13: NOMES BASEADOS NO CONTEUDO
+===========================================================================
+
+O QUE FOI VERIFICADO
+- O coletor V11 ja tinha inferencia de metadados durante o download, mas nao
+  continha o normalizador V4 para renomear retroativamente os arquivos ja
+  registrados em resultados/arquivos_baixados.csv.
+- O V13 integra a leitura conservadora do conteudo e atualiza o caminho do
+  arquivo antes de escrever o indice CSV. Assim, a prova ENEM 2002 com capa
+  "PROVA 1 - AMARELA" pode ser nomeada ENEM_2002_Prova_1_Amarela_<SHA10>.pdf.
+- O ENEM 2000-2008 e marcado Dia_Unico quando nao ha evidencia explicita de
+  dois dias. "PROVA 1" e o numero da prova, nao o dia do exame.
+- O organizador primeiro renomeia downloads catalogados em resultados/materiais,
+  atualiza o CSV com backup/auditoria e depois cria/atualiza as copias do acervo.
+- Arquivos com conflito de SHA, cor ambigua ou destino conflitante nao sao
+  sobrescritos; ficam registrados para revisao.
+
+INSTALACAO
+1. Pare a coleta e o servidor SpiderFoot (Ctrl+C na janela do servidor).
+2. Copie tools/Coletor_ENEM_FATEC/resultados para um backup fora da pasta.
+3. Extraia este patch na raiz SpiderFoot-Final, mantendo a estrutura de pastas.
+   Exemplo: C:\Users\Usuario\Downloads\SpiderFoot_Integrado_v2_Test_20261021\SpiderFoot-Final
+4. Antes de alterar arquivos antigos, execute:
+   tools\Coletor_ENEM_FATEC\SIMULAR_CORRECAO_NOMES_WINDOWS.bat
+5. Leia a simulacao. Se estiver correta, execute:
+   tools\Coletor_ENEM_FATEC\CORRIGIR_NOMES_ANTIGOS_WINDOWS.bat
+6. Confira resultados\materiais\ENEM\2002, o CSV arquivos_baixados.csv e
+   resultados\relatorio_renomeacoes_downloads.csv.
+7. Reinicie o SpiderFoot. Novos downloads agora passam pela mesma validacao
+   de conteudo antes do registro no CSV.
+
+SEGURANCA
+- O script nao altera bytes do documento, apenas o nome/caminho e o indice.
+- O organizador gera copias em Documents\Acervo_Vestibulares; nao apaga o acervo
+  anterior. Destinos diferentes nunca sao sobrescritos.
+- A classificacao depende de texto extraivel. PDFs digitalizados podem exigir
+  Tesseract OCR; sem texto legivel, a cor nao e adivinhada e deve ser revisada.
+- Execute primeiro a simulacao. O teste automatizado nao substitui a revisao
+  dos nomes sugeridos para os seus arquivos reais.
+
+TESTES
+Execute com o Python do ambiente virtual:
+  .venv\Scripts\python.exe tools\Coletor_ENEM_FATEC\testes_correcao_nomes_v13.py
+
+
+V13: correcoes adicionais identificadas apos a simulacao: nomes de arquivo explicitos como GABARITO_* prevalecem sobre referencias a prova/cor dentro do PDF; arquivos .part/.crdownload/.download/.tmp sao ignorados como downloads incompletos; a consulta de pesquisa nao classifica como ENEM/FATEC um documento que ja possui texto legivel sem indicios do exame. Execute primeiro --simular e revise os destinos.

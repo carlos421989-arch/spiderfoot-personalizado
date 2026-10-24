@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import datetime as dt
 import html
+import hashlib
+import http.client
 from html.parser import HTMLParser
 import ipaddress
 import json
@@ -18,18 +20,26 @@ from pathlib import Path
 import re
 import secrets
 import socket
+import ssl
 import tempfile
-from urllib.parse import urljoin, urlparse, parse_qs, unquote
+import time
+from urllib.parse import urljoin, urlparse, parse_qs, quote, unquote
 from xml.etree import ElementTree
 
 import requests
 from flask import (Blueprint, abort, jsonify, render_template, request,
-                   send_file, url_for, make_response)
+                   send_file, url_for, make_response, session)
 
 log = logging.getLogger('spiderfoot.personal_audit')
 personal_audit_bp = Blueprint('personal_audit', __name__)
-# Token local independente: nao requer CSRF global da instalacao SpiderFoot.
-_AUDIT_CSRF = secrets.token_urlsafe(32)
+# O token da extensao deve ser vinculado a sessao do navegador.
+# A verificacao global do SpiderFoot continua sendo aplicada separadamente.
+def _audit_csrf() -> str:
+    token = session.get('_personal_audit_csrf')
+    if not isinstance(token, str) or len(token) < 32:
+        token = secrets.token_urlsafe(32)
+        session['_personal_audit_csrf'] = token
+    return token
 
 
 @personal_audit_bp.before_request
@@ -40,9 +50,29 @@ def _check_write_request():
     if request.content_length is not None and request.content_length > 16 * 1024:
         return jsonify(error='Requisicao muito grande.'), 413
     header = request.headers.get('X-Audit-CSRF', '')
-    if not secrets.compare_digest(header, _AUDIT_CSRF):
+    expected = session.get('_personal_audit_csrf', '')
+    if not expected or not secrets.compare_digest(header, expected):
         return jsonify(error='Token local de protecao invalido. Atualize a pagina.'), 403
     return None
+
+
+def _audit_owner_id() -> str:
+    """Identificador pseudonimo da sessao, nunca registra cookie bruto no disco.
+
+    Auditorias antigas sem proprietario continuam nos backups, mas nao sao
+    mostradas automaticamente a outras sessoes.
+    """
+    owner = session.get('_personal_audit_owner')
+    if not isinstance(owner, str) or len(owner) < 32:
+        owner = secrets.token_urlsafe(32)
+        session['_personal_audit_owner'] = owner
+    return hashlib.sha256(owner.encode('ascii')).hexdigest()
+
+
+@personal_audit_bp.after_request
+def _protect_all_responses(resp):
+    """Tambem evita cache de respostas de erro, busca e confirmacao."""
+    return _privacy_headers(resp)
 
 
 def _privacy_headers(resp):
@@ -74,28 +104,66 @@ def _root() -> Path:
     return path
 
 
-def _valid_public_url(url: str) -> bool:
-    """Conservative anti-SSRF: HTTPS with publicly routable DNS answers."""
+def _resolve_public_url(url: str):
+    """Valida URL e resolve IPs globais que serao usados na conexao TLS.
+
+    Rejeita inteiramente respostas DNS mistas (publicas/privadas).
+    Retorna (URL analisada, primeiro IP validado) ou None.
+    """
     if not isinstance(url, str) or len(url) > 1800:
-        return False
+        return None
     try:
-        u = urlparse(url)
-        if u.scheme != 'https' or not u.hostname or u.username or u.password:
-            return False
-        if u.port not in (None, 443):
-            return False
-        if u.hostname.lower() in {'localhost', 'localhost.localdomain'}:
-            return False
-        addresses = socket.getaddrinfo(u.hostname, 443, type=socket.SOCK_STREAM)
+        parsed = urlparse(url)
+        if (parsed.scheme != 'https' or not parsed.hostname or parsed.username
+                or parsed.password or parsed.port not in (None, 443)):
+            return None
+        hostname = parsed.hostname
+        if hostname.lower() in {'localhost', 'localhost.localdomain'}:
+            return None
+        # Enderecos IP literais nunca podem escapar da verificacao de rotas.
+        try:
+            literal_ip = ipaddress.ip_address(hostname)
+        except ValueError:
+            pass
+        else:
+            if not literal_ip.is_global:
+                return None
+        addresses = socket.getaddrinfo(hostname, 443, type=socket.SOCK_STREAM)
         ips = [ipaddress.ip_address(record[4][0]) for record in addresses]
-        return bool(ips) and all(ip.is_global for ip in ips)
+        if not ips or not all(ip.is_global for ip in ips):
+            return None
+        return parsed, str(ips[0])
     except (ValueError, OSError, TypeError):
-        return False
+        return None
+
+
+def _valid_public_url(url: str) -> bool:
+    """HTTPS publico, sem credenciais, porta alternativa ou IP nao global."""
+    return _resolve_public_url(url) is not None
+
+
+class _PinnedHTTPSConnection(http.client.HTTPSConnection):
+    """TLS com verificacao do hostname original sobre IP DNS ja validado."""
+
+    def __init__(self, hostname: str, address: str):
+        super().__init__(hostname, port=443, timeout=5,
+                         context=ssl.create_default_context())
+        self._pinned_address = address
+
+    def connect(self):
+        # Nunca re-resolver o hostname apos a verificacao SSRF.
+        tcp = socket.create_connection((self._pinned_address, 443), timeout=5)
+        try:
+            self.sock = self._context.wrap_socket(tcp, server_hostname=self.host)
+            self.sock.settimeout(8)
+        except Exception:
+            tcp.close()
+            raise
 
 
 def _session():
     s = requests.Session()
-    s.trust_env = False  # No inherited proxy / TOR redirects.
+    s.trust_env = False  # O motor de indices ignora proxies herdados.
     s.headers.update({
         'User-Agent': 'Mozilla/5.0 (compatible; PersonalExposureAudit/1.0)',
         'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.7',
@@ -103,31 +171,62 @@ def _session():
     return s
 
 
-def _safe_get(s: requests.Session, url: str, max_bytes: int, allowed_types: tuple):
-    """Bounded HTTP(S) request; reject private/loopback URLs on every redirect."""
+def _safe_get(s: requests.Session, url: str, max_bytes: int,
+              allowed_types: tuple, budget: dict | None = None):
+    """Busca publica TLS com IP fixado, redirects manuais e limite de bytes.
+
+    Nao faz buscas externas nos testes: a conexao deve ser simulada.
+    """
     for _ in range(3):
-        if not _valid_public_url(url):
+        if budget is not None:
+            if budget['remaining'] <= 0 or time.monotonic() >= budget['deadline']:
+                return None
+        resolved = _resolve_public_url(url)
+        if resolved is None:
             return None
+        parsed, ip = resolved
+        if budget is not None:
+            budget['remaining'] -= 1
+            budget['used'] += 1
+        conn = None
         try:
-            with s.get(url, stream=True, timeout=(5, 8),
-                       allow_redirects=False) as r:
-                if r.status_code in (301, 302, 303, 307, 308):
-                    location = r.headers.get('Location', '')
-                    url = urljoin(url, location)
-                    continue
-                if r.status_code != 200:
+            conn = _PinnedHTTPSConnection(parsed.hostname, ip)
+            # Nunca incluir o fragmento. Encode mantendo escapes percentuais.
+            path = quote(parsed.path or '/', safe="/%:@-._~!$&'()*+,;=")
+            if parsed.query:
+                path += '?' + quote(parsed.query, safe="/%?:@-._~!$&'()*+,;=")
+            conn.request('GET', path, headers={
+                'Host': parsed.netloc,
+                'User-Agent': s.headers.get('User-Agent', 'PersonalExposureAudit/1.0'),
+                'Accept-Language': s.headers.get('Accept-Language', 'pt-BR'),
+                'Connection': 'close',
+            })
+            r = conn.getresponse()
+            if r.status in (301, 302, 303, 307, 308):
+                location = r.getheader('Location', '')
+                if not location:
                     return None
-                media = r.headers.get('Content-Type', '').split(';')[0].lower().strip()
-                if media not in allowed_types:
+                url = urljoin(url, location)
+                continue
+            if r.status != 200:
+                return None
+            media = (r.getheader('Content-Type', '') or '').split(';')[0].lower().strip()
+            if media not in allowed_types:
+                return None
+            buffer = bytearray()
+            while len(buffer) <= max_bytes:
+                if budget is not None and time.monotonic() >= budget['deadline']:
                     return None
-                buffer = bytearray()
-                for chunk in r.iter_content(chunk_size=32768):
-                    buffer.extend(chunk)
-                    if len(buffer) > max_bytes:
-                        return None
-                return (bytes(buffer), media, url)
-        except requests.RequestException:
+                chunk = r.read(min(32768, max_bytes + 1 - len(buffer)))
+                if not chunk:
+                    return bytes(buffer), media, url
+                buffer.extend(chunk)
             return None
+        except (OSError, ValueError, http.client.HTTPException):
+            return None
+        finally:
+            if conn is not None:
+                conn.close()
     return None
 
 
@@ -146,12 +245,20 @@ def _cpf_valid(value: str) -> bool:
 
 
 def _inputs(data: dict):
+    if not isinstance(data, dict):
+        raise ValueError('O corpo JSON deve ser um objeto.')
     fields = {}
-    nome = str(data.get('nome', '')).strip()
-    email = str(data.get('email', '')).strip()
-    usuario = str(data.get('usuario', '')).strip().lstrip('@')
-    telefone = str(data.get('telefone', '')).strip()
-    cpf = str(data.get('cpf', '')).strip()
+    def get_text(key: str) -> str:
+        value = data.get(key, '')
+        if not isinstance(value, str):
+            raise ValueError(f'O campo {key} deve conter texto.')
+        return value.strip()
+
+    nome = get_text('nome')
+    email = get_text('email')
+    usuario = get_text('usuario').lstrip('@')
+    telefone = get_text('telefone')
+    cpf = get_text('cpf')
 
     if nome:
         if len(nome) < 5 or len(nome) > 110 or any(ord(c) < 32 for c in nome):
@@ -255,7 +362,8 @@ _matches_from_index_anterior = _matches_from_index
 def _matches_from_index(item, fields):
     anterior = _matches_from_index_anterior(item, fields)
     enviado = _matches_from_index_usuario(item, fields)
-    return list(dict.fromkeys(anterior + enviado))
+    return [x for x in dict.fromkeys(anterior + enviado)
+            if x in ('nome', 'email', 'telefone', 'cpf', 'usuario')]
 
 def _queries(fields: dict):
     out = []
@@ -352,6 +460,53 @@ def _ddg_search(s, query):
         return None
 
 
+class _PublicPageText(HTMLParser):
+    """Extrai somente texto visivel: scripts, estilos e metadados nao contam."""
+
+    def __init__(self, max_chars=120000):
+        super().__init__(convert_charrefs=True)
+        self.max_chars = max_chars
+        self.parts = []
+        self.size = 0
+        self.skip = 0
+
+    def handle_starttag(self, tag, attrs):
+        if tag in ('script', 'style', 'noscript', 'svg', 'template'):
+            self.skip += 1
+
+    def handle_endtag(self, tag):
+        if tag in ('script', 'style', 'noscript', 'svg', 'template') and self.skip:
+            self.skip -= 1
+
+    def handle_data(self, text):
+        if not self.skip and self.size < self.max_chars:
+            piece = text[:self.max_chars - self.size]
+            self.parts.append(piece)
+            self.size += len(piece)
+
+    def text(self):
+        return ' '.join(self.parts)
+
+
+def _verify_public_page(session, url, budget):
+    """Confere corpo publico completo sob o mesmo bloqueio SSRF usado em imagens.
+
+    Nunca salva o HTML e nunca acessa paginas autenticadas. Retorna texto
+    apenas em memoria para comparar identificadores completos.
+    """
+    page = _safe_get(session, url, 500 * 1024,
+                     ('text/html', 'application/xhtml+xml'), budget)
+    if page is None:
+        return None
+    raw, _mime, _final_url = page
+    parser = _PublicPageText()
+    try:
+        parser.feed(raw.decode('utf-8', errors='replace'))
+        return parser.text()
+    except (ValueError, UnicodeError):
+        return None
+
+
 class _PhotosParser(HTMLParser):
     def __init__(self, tokens):
         super().__init__()
@@ -412,7 +567,7 @@ def _search_indexed_images(s, label: str):
 
 
 
-def _detect_photos(s, root: Path, run_id: str, sources, name_hint: str):
+def _detect_photos(s, root: Path, run_id: str, sources, name_hint: str, budget: dict):
     tokens = [w.lower() for w in re.findall(r'\w+', name_hint)
               if len(w) >= 4][:4]
     images = []
@@ -422,14 +577,26 @@ def _detect_photos(s, root: Path, run_id: str, sources, name_hint: str):
     # Sem reconhecimento de rosto e sem afirmacao de que a foto seja do usuario.
     page_count = 0
     for source in sources:
-        if len(images) >= MAX_IMAGES or page_count >= MAX_FETCH_PAGES:
+        if (len(images) >= MAX_IMAGES or page_count >= MAX_FETCH_PAGES
+                or budget['remaining'] <= 0 or time.monotonic() >= budget['deadline']):
             break
         if source['tipo'] not in ('nome', 'usuario', 'email', 'perfil_informado'):
+            continue
+        # Nao associar imagens a alguem apenas pela coincidencia de nome.
+        # Imagens de paginas recuperadas por buscadores requerem email ou
+        # nome de usuario literal; links declarados pelo proprio usuario sao
+        # aceitos como nao verificados, sempre com confirmacao manual.
+        user_link = (source.get('confianca') == 'informado_por_voce'
+                     or source.get('informado_por_voce') is True)
+        distinctive = (source.get('confianca') == 'identificador_literal'
+                       and any(k in source.get('coincidencias', [])
+                               for k in ('email', 'usuario')))
+        if not (user_link or distinctive):
             continue
         # Do not fetch photos from unrelated CPF/telephone listings.
         page_count += 1
         page = _safe_get(s, source['url'], MAX_HTML_BYTES,
-                         ('text/html', 'application/xhtml+xml'))
+                         ('text/html', 'application/xhtml+xml'), budget)
         if not page:
             continue
         raw, _media, final_url = page
@@ -444,7 +611,7 @@ def _detect_photos(s, root: Path, run_id: str, sources, name_hint: str):
                 continue
             seen.add(img_url)
             fetched = _safe_get(s, img_url, MAX_IMAGE_BYTES,
-                                tuple(ALLOWED_IMAGES))
+                                tuple(ALLOWED_IMAGES), budget)
             if not fetched:
                 continue
             content, mime, actual_url = fetched
@@ -481,16 +648,23 @@ def _read_run(root, run_id):
         abort(404)
     path = root / 'runs' / (run_id + '.json')
     try:
-        return json.loads(path.read_text('utf-8'))
+        record = json.loads(path.read_text('utf-8'))
     except (OSError, ValueError):
         abort(404)
+    if not isinstance(record, dict) or not secrets.compare_digest(
+            str(record.get('audit_owner', '')), _audit_owner_id()):
+        abort(404)
+    return record
 
 
 def _history(root):
     entries = []
-    for path in sorted((root / 'runs').glob('*.json'), reverse=True)[:20]:
+    owner_id = _audit_owner_id()
+    for path in sorted((root / 'runs').glob('*.json'), reverse=True):
         try:
             obj = json.loads(path.read_text('utf-8'))
+            if not isinstance(obj, dict) or obj.get('audit_owner') != owner_id:
+                continue
             entries.append({
                 'id': path.stem,
                 'quando': obj.get('quando', ''),
@@ -498,6 +672,8 @@ def _history(root):
                 'fotos': len(obj.get('fotos', [])),
                 'tipos': ', '.join(obj.get('tipos', [])),
             })
+            if len(entries) >= 20:
+                break
         except (OSError, ValueError):
             continue
     return entries
@@ -509,7 +685,7 @@ def index():
     response = render_template('pages/personal_audit.html',
                                page_id='PERSONAL_AUDIT', version=__version__,
                                history=_history(_root()), report=None,
-                               audit_csrf=_AUDIT_CSRF)
+                               audit_csrf=_audit_csrf())
     return _privacy_headers(make_response(response))
 
 
@@ -518,46 +694,67 @@ def search():
     if not request.is_json:
         return jsonify(error='Requisicao JSON necessaria.'), 400
     try:
-        data = request.get_json(silent=True) or {}
+        data = request.get_json(silent=True)
         fields = _inputs(data)
     except ValueError as exc:
         return jsonify(error=str(exc)), 400
 
     run_id = secrets.token_hex(16)
-    root = _root()
     sources = []
     seen_urls = set()
     warnings = []
     descartadas = 0
     # AUDITORIA_AMPLIADA_V4: varios indices/paginas e classificador de confianca.
     from spiderfoot.blueprints.personal_audit_deep import realizar_busca, MODOS
-    modo = str(data.get('modo') or 'profunda')
-    if modo not in MODOS:
+    modo = data.get('modo', 'profunda')
+    if not isinstance(modo, str) or modo not in MODOS:
         return jsonify(error='Modo de pesquisa invalido.'), 400
     perfis = data.get('perfis_confirmados') or ''
     if not isinstance(perfis, str) or len(perfis) > 8000:
         return jsonify(error='Lista de perfis muito extensa.'), 400
+    root = _root()
+    coletar_fotos = data.get('coletar_fotos') is True
+    limite = MODOS[modo]['requisicoes']
+    reserva_imagens = min(2 * MAX_FETCH_PAGES, limite // 3) if coletar_fotos else 0
+    # Prioriza descobrir identificadores no corpo publico da pagina, nao so no
+    # resumo do indice. Nunca aumenta o limite global de requisicoes.
+    tem_identificador = any(fields.get(k) for k in ('email', 'usuario', 'telefone', 'cpf'))
+    reserva_paginas = min(12, max(2, limite // 8)) if tem_identificador else 0
+    deadline = time.monotonic() + MODOS[modo]['segundos']
+    budget = {'remaining': reserva_imagens, 'used': 0, 'deadline': deadline}
+    budget_paginas = {'remaining': reserva_paginas, 'used': 0, 'deadline': deadline}
     with _session() as s:
         sources, resumo_busca, avisos_busca = realizar_busca(
             s, fields, modo, perfis,
             _valid_public_url, _matches_from_index,
+            max_requests=limite - reserva_imagens - reserva_paginas,
+            verify_page=lambda url, b: _verify_public_page(s, url, b),
+            verification_budget=budget_paginas,
         )
         warnings.extend(avisos_busca)
         descartadas = resumo_busca['descartadas']
         fotos = []
-        if data.get('coletar_fotos') is True:
+        if coletar_fotos:
             fotos = _detect_photos(s, root, run_id, sources,
-                                  fields.get('nome') or fields.get('usuario') or '')
+                                  fields.get('nome') or fields.get('usuario') or '', budget)
             if not fotos:
                 warnings.append('Nenhuma imagem candidata recuperada das paginas publicas consultadas.')
+
+    resumo_busca['requisicoes_imagens'] = budget['used']
+    resumo_busca['requisicoes_verificacao'] = budget_paginas['used']
+    resumo_busca['requisicoes_total'] = (resumo_busca['requisicoes'] + budget['used']
+                                         + budget_paginas['used'])
+    if coletar_fotos and (budget['remaining'] == 0 or time.monotonic() >= deadline):
+        warnings.append('Limite compartilhado de tempo ou requisicoes para imagens atingido.')
 
     report = {
         'filtro_exato': True,
         'descartadas': descartadas,
-        'versao_busca': 'ampliada-v4',
+        'versao_busca': 'multibusca-corpo-publico-v2',
         'modo': modo,
         'estatisticas': resumo_busca,
         'id': run_id,
+        'audit_owner': _audit_owner_id(),
         'quando': dt.datetime.now(dt.timezone.utc).strftime('%Y-%m-%d %H:%M UTC'),
         'tipos': list(fields.keys()),
         'fontes': sources,
@@ -579,7 +776,7 @@ def result(run_id):
     response = render_template('pages/personal_audit.html',
                                page_id='PERSONAL_AUDIT', version=__version__,
                                history=_history(root), report=report,
-                               audit_csrf=_AUDIT_CSRF)
+                               audit_csrf=_audit_csrf())
     return _privacy_headers(make_response(response))
 
 
@@ -600,7 +797,10 @@ def image(run_id, filename):
 def confirm_image(run_id, index):
     root = _root()
     report = _read_run(root, run_id)
-    answer = (request.get_json(silent=True) or {}).get('confirmacao')
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify(error='O corpo JSON deve ser um objeto.'), 400
+    answer = payload.get('confirmacao')
     if answer not in ('minha', 'nao_minha', 'pendente'):
         return jsonify(error='Valor de confirmacao invalido.'), 400
     images = report.get('fotos', [])
@@ -621,3 +821,14 @@ def delete_run(run_id):
             (root / 'imagens' / filename).unlink(missing_ok=True)
     (root / 'runs' / (run_id + '.json')).unlink(missing_ok=True)
     return jsonify(ok=True, url=url_for('personal_audit.index'))
+
+
+@personal_audit_bp.get('/minha-exposicao/fontes-publicas')
+def public_sources():
+    """Catalogo informativo: nao chama APIs privadas e nao transporta identificadores."""
+    from spiderfoot.__version__ import __version__
+    from spiderfoot.blueprints.personal_audit_public_catalog import PUBLIC_SOURCES
+    response = render_template('pages/personal_audit_fontes_publicas.html',
+                               page_id='PERSONAL_AUDIT', version=__version__,
+                               fontes=PUBLIC_SOURCES)
+    return _privacy_headers(make_response(response))
